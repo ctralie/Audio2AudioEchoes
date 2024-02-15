@@ -5,6 +5,7 @@ from echohiding import echo_hide, extract_echo_bits, get_mp3_encoded
 import pathlib
 import librosa
 import numpy
+import threading
 
 L = 2048
 
@@ -32,15 +33,17 @@ def walk_dir(dir:str) -> [str]:
                 files.append(each)
     return files
 
-def process_dir(dir:str, func:function):
+def process_dir(dir:str, func):
     """
     Loop through all files in the given directory and do something (func)
     Parameters:
         dir: (str) 
+        func: function to be done on the given directory
+        thread_num: the number of the thread running this iteration of the method (defaults to None)
     Returns:
         Returns the value of whatever the function func does
     """
-    print("Processing {}".format(dir))
+    print("Processing: {}".format(dir))
     return func(dir)
 
 def get_avg_echo_vals(dir:str) -> float:
@@ -53,6 +56,7 @@ def get_avg_echo_vals(dir:str) -> float:
             each file in this directory
     """
     vals = []
+    print("Processing {} on thread {}".format(dir, threading.current_thread().name))
     for file in walk_dir(dir):
         try:
             vals.append(numpy.mean(extract_bits_from_file(file)))
@@ -73,7 +77,12 @@ def extract_bits_from_file(file:str) -> [int]:
     y, sr = librosa.load(file)
 
     bitrate = 64
-    b_est_mp3 = extract_echo_bits(get_mp3_encoded(y, sr, bitrate), L)
+    if threading.current_thread().name == "MainThread":
+        b_est_mp3 = extract_echo_bits(get_mp3_encoded(y, sr, bitrate), L)
+    else:
+        thread_num = threading.current_thread().name
+        b_est_mp3 = extract_echo_bits(get_mp3_encoded_thread(y, sr, bitrate, thread_num), L)
+
     return b_est_mp3
 
 def input_bits_into_file(file:str) -> None:
@@ -92,3 +101,35 @@ def input_bits_into_file(file:str) -> None:
 
     b_est_mp3 = extract_echo_bits(get_mp3_encoded(z, sr, bitrate), L)
     print(numpy.mean(b_est_mp3))
+
+def get_mp3_encoded_thread(x, sr, bitrate, thread_num):
+    """
+    Get an mp3 encoding.  Assumes ffmpeg is installed and accessible
+    in the terminal environment. This version of this method is thread safe
+    (assuming you manage thread_num values properly)
+
+    Parameters
+    ----------
+    x: ndarray(N, dtype=float)
+        Mono audio samples in [-1, 1]
+    sr: int
+        Sample rate
+    bitrate: int
+        Number of kbits per second to use in the mp3 encoding
+    """
+    import subprocess
+    import os
+    from scipy.io import wavfile
+    temp_wav = "temp{}.wav".format(thread_num)
+    temp_mp3 = "temp{}.mp3".format(thread_num)
+    x = numpy.array(x*32768, dtype=numpy.int16)
+    wavfile.write(temp_wav, sr, x)
+    if os.path.exists(temp_mp3):
+        os.remove(temp_mp3)
+    subprocess.call(["ffmpeg", "-i", temp_wav,"-b:a", "{}k".format(bitrate), temp_mp3], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    os.remove(temp_wav)
+    subprocess.call(["ffmpeg", "-i", temp_mp3, temp_wav], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    os.remove(temp_mp3)
+    _, y = wavfile.read(temp_wav)
+    os.remove(temp_wav)
+    return y/32768
