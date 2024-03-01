@@ -1,19 +1,15 @@
-import sys
-import os
-from EchoHiding import echo_hide, extract_echo_bits, get_mp3_encoded
-import pathlib
-import librosa
 import numpy
-from util_functions import *
+import librosa
 import soundfile as sf
+from util_functions import *
 from threading import Thread
-
+from EchoHiding.echohiding import echo_hide, extract_echo_bits
 """
 This file will hide ones in every file contained within existing_dir below
 """
 
-existing_dir = "/opt/research/nsynth/nsynth-train/audio/"
-save_location = "/opt/research/new_nsynth/nsynth-train/audio/"
+existing_dir = "/opt/research/garnerviolin"
+save_location = "/opt/research/garnerviolinones/"
 files_to_process = walk_dir(existing_dir)
 file_to_process = files_to_process[0]
 
