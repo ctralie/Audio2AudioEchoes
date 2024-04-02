@@ -1,5 +1,5 @@
 """
-This script will generate audio utilizing a given TorchScript
+This script will generate random audio utilizing a given TorchScript
 """
 
 import librosa as li
@@ -13,7 +13,7 @@ torch.set_grad_enabled(False)
 
 def generate_audio(model_dir, output_dir) -> None:
     """
-    This function uses a specified torchscript model to generate 10 seconds of audio
+    This function uses a specified torchscript model to generate 10 seconds of audio by decoding a random input
     Params:
         model_dir: file path to the torchscript file to use as the model in string format
         output_dir: file path to where you would like the audio saved too
