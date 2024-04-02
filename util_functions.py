@@ -1,31 +1,35 @@
 import sys
 import os
 sys.path.insert(0, '/opt/research/EchoHiding/')
-from echohiding import echo_hide, extract_echo_bits, get_mp3_encoded
-import pathlib
+from EchoHiding.echohiding import echo_hide, extract_echo_bits, get_mp3_encoded
 import librosa
 import numpy
 import threading
 
+"""
+This file holds various functions that are applicable across the ArtistProtect project
+"""
+
 L = 2048
 
-def walk_dir(dir:str) -> [str]:
+def walk_dir(dir:str):
     """
-    Return an array listing the paths to each file in the 
+    Return an array listing the paths to each .wav file in the 
     given directory and any subdirectories
     Parameters:
         dir: str of the directory to walk through
 
     Returns:
         [strings]: array of strings, each representing a unique file path
-                in the given directory
+                in the given directory that ends with .wav
     """
     files = []
     for filename in os.listdir(dir):
         f = os.path.join(dir, filename)
         # checking if it is a file
         if os.path.isfile(f):
-            files.append(f)
+            if str(f).endswith(".wav"):
+                files.append(f)
         if os.path.isdir(f):
             #print("Walking {}".format(f))
             append_this = walk_dir(f)
@@ -65,7 +69,7 @@ def get_avg_echo_vals(dir:str) -> float:
     avg = numpy.mean(vals)
     return avg
 
-def extract_bits_from_file(file:str) -> [int]:
+def extract_bits_from_file(file:str):
     """
     Helper function to extract bits from a given file
     Parameters:
