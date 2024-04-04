@@ -1,7 +1,7 @@
 import sys
 import os
 sys.path.insert(0, '/opt/research/EchoHiding/')
-from echohiding import echo_hide, extract_echo_bits, get_mp3_encoded
+from EchoHiding import *
 import pathlib
 import librosa
 import numpy
@@ -22,15 +22,17 @@ def walk_dir(dir:str) -> [str]:
     """
     files = []
     for filename in os.listdir(dir):
-        f = os.path.join(dir, filename)
-        # checking if it is a file
-        if os.path.isfile(f):
-            files.append(f)
-        if os.path.isdir(f):
-            #print("Walking {}".format(f))
-            append_this = walk_dir(f)
-            for each in append_this:
-                files.append(each)
+
+            f = os.path.join(dir, filename)
+            # checking if it is a file
+            if os.path.isfile(f):
+                if str(filename[-3:]) == "wav": 
+                    files.append(f)
+            if os.path.isdir(f):
+                #print("Walking {}".format(f))
+                append_this = walk_dir(f)
+                for each in append_this:
+                    files.append(each)
     return files
 
 def process_dir(dir:str, func):
