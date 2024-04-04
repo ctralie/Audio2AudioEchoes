@@ -4,10 +4,11 @@ from EchoHiding.echohiding import echo_hide, extract_echo_bits, get_cepstrum, ec
 import pathlib
 import librosa
 import numpy
-from util_functions import *
+import librosa
 import soundfile as sf
+from util_functions import *
 from threading import Thread
-
+from EchoHiding.echohiding import echo_hide, extract_echo_bits
 """
 This file will hide ones in every file contained within existing_dir below
 """
