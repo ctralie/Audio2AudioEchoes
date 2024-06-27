@@ -58,7 +58,6 @@ if __name__ == "__main__":
     parser.add_argument('--alpha', type=float, default=0.4, help='Strength of echo')
     parser.add_argument('--temp_dir', type=str, required=True, help="Path to temporary folder to which to save modified dataset (cleared before and after echoes are created)")
     parser.add_argument('--sr', type=int, default=44100, help="Audio sample rate")
-    opt = parser.parse_args()
     parser.add_argument('--n_threads', type=str, default=10, help="Number of threads to use")
     opt = parser.parse_args()
 
