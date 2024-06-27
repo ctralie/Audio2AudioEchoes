@@ -1,8 +1,4 @@
-import sys
 import os
-sys.path.insert(0, '/opt/research/EchoHiding/')
-from EchoHiding import *
-import pathlib
 import librosa
 import numpy
 import threading
