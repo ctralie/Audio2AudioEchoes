@@ -9,6 +9,7 @@ import subprocess
 import numpy as np
 from echohiding import echo_hide_single
 from utils import walk_dir
+import time
 import glob
 import os
 import librosa
@@ -17,22 +18,25 @@ from multiprocessing import Pool
 
 def add_echo(params):
     (filename_in, filename_out, sr, lag, alpha) = params
-    print("{}, {}\n\n".format(filename_in, filename_out))
+    tic = time.time()
     try:
         this_sr, x = wavfile.read(filename_in)
         if sr != this_sr:
-            print("Warning: wrong sample rate of {} in".format(this_sr), filename_in)
-        x = x.astype(float)/32767
+            print("Wrong sample rate on {}, {}.  Falling back to librosa".format(filename_in, filename_out))
+            x, _ = librosa.load(filename_in, sr=sr)
+        else:
+            x = x.astype(float)/32767
     except:
         print("Failed {}, trying librosa...".format(filename_in))
         try:
-            x, sr = librosa.load(filename_in)
+            x, sr = librosa.load(filename_in, sr=sr)
         except:
             print("Librosa failed also")
             return
     x = echo_hide_single(x, lag, alpha)
     x = np.array(x*32767, dtype=np.int16)
     wavfile.write(filename_out, sr, x)
+    print("{}, {}, Elapsed {}\n\n".format(filename_in, filename_out, time.time()-tic))
 
 
 def prepare_rave(dataset_path, output_path, lag, alpha, temp_dir, sr=44100, n_threads=10):
