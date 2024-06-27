@@ -9,16 +9,27 @@ import subprocess
 import numpy as np
 from echohiding import echo_hide_single
 from utils import walk_dir
-import librosa
 import glob
 import os
+import librosa
 from scipy.io import wavfile
 from multiprocessing import Pool
 
 def add_echo(params):
     (filename_in, filename_out, sr, lag, alpha) = params
     print("{}, {}\n\n".format(filename_in, filename_out))
-    x, _ = librosa.load(filename_in, sr=sr)
+    try:
+        this_sr, x = wavfile.read(filename_in)
+        if sr != this_sr:
+            print("Warning: wrong sample rate of {} in".format(this_sr), filename_in)
+        x = x.astype(float)/32767
+    except:
+        print("Failed {}, trying librosa...".format(filename_in))
+        try:
+            x, sr = librosa.load(filename_in)
+        except:
+            print("Librosa failed also")
+            return
     x = echo_hide_single(x, lag, alpha)
     x = np.array(x*32767, dtype=np.int16)
     wavfile.write(filename_out, sr, x)
@@ -35,7 +46,6 @@ def prepare_rave(dataset_path, output_path, lag, alpha, temp_dir, sr=44100, n_th
     filenames_out = ["{}/{}.wav".format(temp_dir, i) for i in range(N)]
     with Pool(n_threads) as p:
         p.map(add_echo, zip(filenames_in, filenames_out, [sr]*N, [lag]*N, [alpha]*N))
-    
     ## Step 3: Preprocess with rave
     if not os.path.exists(output_path):
         os.mkdir(output_path)
