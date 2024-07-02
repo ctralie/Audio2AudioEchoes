@@ -81,7 +81,25 @@ def extract_echo_bits(y, L, delta0=50, delta1=75):
     F = np.fft.irfft(np.log(F+1e-8), axis=1)
     return np.array(F[:, delta1] > F[:, delta0], dtype=int)
 
-def echo_hide_single(x, delta, alpha=0.4):
+def echo_hide_constant(x, deltas, alphas):
+    """
+    Put a single echo at a particular lag
+
+    Parameters
+    ----------
+    x: ndarray(N)
+        Audio samples
+    deltas: ndarray(m, dtype=int)
+        Delays of the echoes
+    alphas: ndarray(m)
+        Amplitude of echoes
+    """
+    y  = np.array(x)
+    for delta, alpha in zip(deltas, alphas):
+        y[delta:] += alpha*x[0:-delta]
+    return y
+
+def echo_hide_constant_single(x, delta, alpha=0.4):
     """
     Put a single echo at a particular lag
 
