@@ -13,7 +13,6 @@ from utils import walk_dir
 import time
 import glob
 import os
-import librosa
 import torch
 from torch import nn
 from scipy.io import wavfile
@@ -21,9 +20,15 @@ from scipy.io import wavfile
 def add_bits(filename_in, filename_out, sr, pattern, Gamma=15, lam=0.1, fwin=16, sigmoid_scale=3, n_iters=500, win_length=2048, lr=1e-4, device='cuda'):
     print("Doing", filename_in, "...")
     tic = time.time()
+    ## Step 1: Load in audio and deal with quiet regions
     x = load_audio_fast_wav(filename_in, sr)
+    energy = x**2
+    energy = np.pad(energy, (win_length//2, win_length//2))
+    energy = np.cumsum(energy)
+    de = energy[win_length:] - energy[0:-win_length]
+    x = x + 1e-6*np.random.randn(x.size)/(1 + de)
 
-    ## Step 1: Setup differentiable audio and target bits
+    ## Step 2: Setup differentiable audio and target bits
     pattern_length = pattern.size
     k1 = 1
     k2 = k1 + pattern_length # Use enough frequency bins to accomodate the pattern
@@ -33,44 +38,54 @@ def add_bits(filename_in, filename_out, sr, pattern, Gamma=15, lam=0.1, fwin=16,
     x = torch.atanh(x)
     x = x.requires_grad_()
 
-    ## Step 2: Do gradient descent
+    ## Step 3: Do gradient descent
     decoder_fn = lambda u: stft_mag_decode(u, win_length, k1, k2, Gamma, fwin)
     bce_loss = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam([x], lr=lr)
     SpecOrig = torch.abs(get_batch_stft(x_orig.unsqueeze(0), win_length)[0, :, :])
-    for _ in range(n_iters):
+    losses = []
+    offsets = list(range(0, win_length//2, win_length//8))
+    for i in range(n_iters):
         optimizer.zero_grad()
         xtan = torch.tanh(x)
         Speci = torch.abs(get_batch_stft(xtan.unsqueeze(0), win_length)[0, :, :])
-        #BEst, _, _ = decoder_fn(xtan[np.random.randint(win_length//2):]) # Randomly crop from beginning
-        BEst, _, _ = decoder_fn(xtan)
-        BEst = BEst.flatten()
-        BEst = sigmoid_scale*BEst
-
-        # Create target of appropriate length
-        n_repeats = BEst.numel()//pattern_length
-        BTarget = np.ones((n_repeats, 1))*pattern[None, :]
-        BTarget = torch.from_numpy(BTarget.flatten()).to(device)
-        BEst = BEst[0:BTarget.numel()]
-
-        loss1 = bce_loss(BEst, 1.0*BTarget)
-        #loss2 = lam*torch.mean(torch.abs(xtan-x_orig))
         loss2 = lam*torch.mean(torch.abs(SpecOrig-Speci)[:, 0:win_length//4])
+        loss1 = 0
+        for off in offsets:
+            BEst, _, _ = decoder_fn(xtan[off:])
+        
+            BEst = BEst.flatten()
+            n_repeats = BEst.numel()//pattern_length
+            BTarget = np.ones((n_repeats, 1))*pattern[None, :]
+            BTarget = torch.from_numpy(BTarget.flatten()).to(device)
+            BEst = BEst[0:BTarget.numel()]
+            
+            BEst = BEst.flatten()
+            BEst = sigmoid_scale*BEst
+            loss1 += bce_loss(BEst, 1.0*BTarget)/len(offsets)
+
         loss = loss1 + loss2
+        losses.append(loss.item())
+        
         loss.backward()
         optimizer.step()
+        
+        if i%100 == 0:
+            print(i, loss1.item(), loss2.item())
 
-    ## Step 3: Save transformed audio
-    x = torch.tanh(x).detach().cpu().flatten()
-    x = np.array(x*32767, dtype=np.int16)
-    wavfile.write(filename_out, sr, x)
+    ## Step 4: Save transformed audio
+    xtan = torch.tanh(x).detach().cpu().numpy().flatten()
+    xtan = np.array(xtan*32767, dtype=np.int16)
+    wavfile.write(filename_out, sr, xtan)
 
     print("Elapsed {}\n\n".format(time.time()-tic))
 
 
-def prepare_rave(dataset_path, output_path, pattern, temp_dir, sr=44100, n_threads=10):
-    pattern = np.array([int(c) for c in pattern])
-    print(pattern)
+def prepare_rave(dataset_path, output_path, pattern, expand_fac, temp_dir, sr=44100, n_threads=10):
+    pattern_orig = np.array([int(c) for c in pattern], dtype=int)
+    print(pattern_orig)
+    pattern = np.ones((1, expand_fac))*pattern_orig[:, None]
+    pattern = np.array(pattern.flatten(), dtype=int)
     ## Step 1: Cleanup temp directory
     for f in glob.glob("{}/*".format(temp_dir)):
         os.remove(f)
@@ -102,12 +117,13 @@ if __name__ == "__main__":
     parser.add_argument('--dataset_path', type=str, required=True, help="Path to dataset")
     parser.add_argument('--output_path', type=str, required=True, help="Path to which to output rave prepared dataset")
     parser.add_argument('--pattern', type=str, default="0101100011011000", help='Binary pattern to hide')
+    parser.add_argument('--expand_fac', type=int, default=4, help='Expansion factor for binary pattern')
     parser.add_argument('--temp_dir', type=str, required=True, help="Path to temporary folder to which to save modified dataset (cleared before and after echoes are created)")
     parser.add_argument('--sr', type=int, default=44100, help="Audio sample rate")
     parser.add_argument('--n_threads', type=int, default=10, help="Number of threads to use")
     opt = parser.parse_args()
 
-    prepare_rave(opt.dataset_path, opt.output_path, opt.pattern, opt.temp_dir, opt.sr, opt.n_threads)
+    prepare_rave(opt.dataset_path, opt.output_path, opt.pattern, opt.expand_fac, opt.temp_dir, opt.sr, opt.n_threads)
 
 
 
