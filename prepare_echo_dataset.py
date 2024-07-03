@@ -7,6 +7,7 @@ sys.path.append("src")
 import argparse
 import subprocess
 import numpy as np
+from audioutils import load_audio_fast_wav
 from echohiding import echo_hide_constant
 from utils import walk_dir
 import time
@@ -20,20 +21,7 @@ def add_echo(params):
     (filename_in, filename_out, sr, lags, alpha) = params
     lags = [int(l) for l in lags.split(",")]
     tic = time.time()
-    try:
-        this_sr, x = wavfile.read(filename_in)
-        if sr != this_sr:
-            print("Wrong sample rate on {}, {}.  Falling back to librosa".format(filename_in, filename_out))
-            x, _ = librosa.load(filename_in, sr=sr)
-        else:
-            x = x.astype(float)/32767
-    except:
-        print("Failed {}, trying librosa...".format(filename_in))
-        try:
-            x, sr = librosa.load(filename_in, sr=sr)
-        except:
-            print("Librosa failed also")
-            return
+    x = load_audio_fast_wav(filename_in, sr)
     x = echo_hide_constant(x, lags, [alpha]*len(lags))
     x = np.array(x*32767, dtype=np.int16)
     wavfile.write(filename_out, sr, x)

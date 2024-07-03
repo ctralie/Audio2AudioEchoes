@@ -1,5 +1,33 @@
 import numpy as np
 
+def load_audio_fast_wav(filename_in, sr):
+    """
+    Load in an audio file quickly by trying to bypass librosa
+
+    Mix to mono in the process
+    """
+    from scipy.io import wavfile
+    try:
+        this_sr, x = wavfile.read(filename_in)
+        if len(x.shape) == 2:
+            # Stereo audio
+            x = np.mean(x, axis=1)
+        if sr != this_sr:
+            import librosa
+            print("Wrong sample rate on {}.  Falling back to librosa".format(filename_in))
+            x, _ = librosa.load(filename_in, sr=sr)
+        else:
+            x = x.astype(float)/32767
+    except:
+        print("Failed {}, trying librosa...".format(filename_in))
+        try:
+            import librosa
+            x, sr = librosa.load(filename_in, sr=sr)
+        except:
+            print("Librosa failed also")
+            return
+    return x
+
 def get_odg_distortion(x, y, sr, advanced=True, cleanup=True):
     """
     A wrapper around GstPEAQ for computing objective measurements

@@ -8,7 +8,7 @@ import argparse
 import subprocess
 import numpy as np
 from decoders import raw_avg_decode
-from audioutils import get_batch_stft
+from audioutils import get_batch_stft, load_audio_fast_wav
 from utils import walk_dir
 import time
 import glob
@@ -19,22 +19,9 @@ from torch import nn
 from scipy.io import wavfile
 
 def add_bits(filename_in, filename_out, sr, pattern, avg_win, Gamma=15, lam=0.1, fwin=16, sigmoid_scale=3, n_iters=200, win_length=2048, device='cuda'):
+    print("Doing", filename_in, "...")
     tic = time.time()
-    try:
-        this_sr, x = wavfile.read(filename_in)
-        if sr != this_sr:
-            print("Wrong sample rate on {}, {}.  Falling back to librosa".format(filename_in, filename_out))
-            x, _ = librosa.load(filename_in, sr=sr)
-        else:
-            x = x.astype(float)/32767
-    except:
-        print("Failed {}, trying librosa...".format(filename_in))
-        try:
-            x, sr = librosa.load(filename_in, sr=sr)
-        except:
-            print("Librosa failed also")
-            return
-    
+    x = load_audio_fast_wav(filename_in, sr)
 
     ## Step 1: Setup differentiable audio and target bits
     pattern_length = pattern.size
@@ -72,11 +59,7 @@ def add_bits(filename_in, filename_out, sr, pattern, avg_win, Gamma=15, lam=0.1,
     x = np.array(x*32767, dtype=np.int16)
     wavfile.write(filename_out, sr, x)
 
-    x = x_orig.cpu().flatten()
-    x = np.array(x*32767, dtype=np.int16)
-    wavfile.write(filename_out+"_orig.wav", sr, x)
-
-    print("{}, {}, Elapsed {}\n\n".format(filename_in, filename_out, time.time()-tic))
+    print("Elapsed {}\n\n".format(time.time()-tic))
 
 
 def prepare_rave(dataset_path, output_path, pattern, avg_win, temp_dir, sr=44100, n_threads=10):
@@ -92,10 +75,7 @@ def prepare_rave(dataset_path, output_path, pattern, avg_win, temp_dir, sr=44100
     filenames_out = ["{}/{}.wav".format(temp_dir, i) for i in range(N)]
     skipped = []
     for (filename_in, filename_out) in zip(filenames_in, filenames_out):
-        try:
-            add_bits(filename_in, filename_out, sr, pattern, avg_win)
-        except:
-            skipped.append(filename_in)
+        add_bits(filename_in, filename_out, sr, pattern, avg_win)
     print(len(skipped), "skipped")
     ## Step 3: Preprocess with rave
     if not os.path.exists(output_path):
