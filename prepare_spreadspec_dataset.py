@@ -17,7 +17,7 @@ import torch
 from torch import nn
 from scipy.io import wavfile
 
-def add_bits(filename_in, filename_out, sr, pattern, lam=0.1, n_iters=500, win_length=2048, lr=1e-4, device='cuda'):
+def add_bits(filename_in, filename_out, sr, pattern, lam=0.1, n_iters=500, win_length=2048, lr=1e-4, offsets_per_iter=10, device='cuda'):
     print("Doing", filename_in, filename_out, "...")
     tic = time.time()
     ## Step 1: Load in audio and deal with quiet regions
@@ -44,14 +44,14 @@ def add_bits(filename_in, filename_out, sr, pattern, lam=0.1, n_iters=500, win_l
     optimizer = torch.optim.Adam([x], lr=lr)
     SpecOrig = torch.abs(get_batch_stft(x_orig.unsqueeze(0), win_length)[0, :, :])
     losses = []
-    offsets = list(range(0, win_length//2, win_length//8))
     for i in range(n_iters):
         optimizer.zero_grad()
         xtan = torch.tanh(x)
         Speci = torch.abs(get_batch_stft(xtan.unsqueeze(0), win_length)[0, :, :])
         loss2 = lam*torch.mean(torch.abs(torch.log(SpecOrig+1e-6)-torch.log(Speci+1e-6))[:, 0:win_length//4])
         loss1 = 0
-        for off in offsets:
+        for _ in range(offsets_per_iter):
+            off = np.random.randint(win_length)
             proj = decoder_fn(xtan[off:])
             loss1 -= torch.sum(proj)
 
