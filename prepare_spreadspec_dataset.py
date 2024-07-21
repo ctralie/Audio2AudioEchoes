@@ -7,7 +7,7 @@ sys.path.append("src")
 import argparse
 import subprocess
 import numpy as np
-from decoders import stft_mag_decode
+from decoders import spread_spec_proj
 from audioutils import get_batch_stft, load_audio_fast_wav
 from utils import walk_dir
 import time
@@ -17,8 +17,8 @@ import torch
 from torch import nn
 from scipy.io import wavfile
 
-def add_bits(filename_in, filename_out, sr, pattern, Gamma=15, lam=0.1, fwin=16, sigmoid_scale=3, n_iters=500, win_length=2048, lr=1e-4, device='cuda'):
-    print("Doing", filename_in, "...")
+def add_bits(filename_in, filename_out, sr, pattern, lam=0.1, n_iters=500, win_length=2048, lr=1e-4, device='cuda'):
+    print("Doing", filename_in, filename_out, "...")
     tic = time.time()
     ## Step 1: Load in audio and deal with quiet regions
     x = load_audio_fast_wav(filename_in, sr)
@@ -30,8 +30,9 @@ def add_bits(filename_in, filename_out, sr, pattern, Gamma=15, lam=0.1, fwin=16,
 
     ## Step 2: Setup differentiable audio and target bits
     pattern_length = pattern.size
+    tpattern = torch.from_numpy(pattern*2-1).to(device)
     k1 = 1
-    k2 = k1 + pattern_length # Use enough frequency bins to accomodate the pattern
+    k2 = k1 + pattern_length-1 # Use enough frequency bins to accomodate the pattern
     x = x[0:win_length*(x.size//win_length)]
     x_orig = torch.from_numpy(x).to(device)
     x = torch.from_numpy(x).to(device)
@@ -39,8 +40,7 @@ def add_bits(filename_in, filename_out, sr, pattern, Gamma=15, lam=0.1, fwin=16,
     x = x.requires_grad_()
 
     ## Step 3: Do gradient descent
-    decoder_fn = lambda u: stft_mag_decode(u, win_length, k1, k2, Gamma, fwin)
-    bce_loss = nn.BCEWithLogitsLoss()
+    decoder_fn = lambda u: spread_spec_proj(u, tpattern, win_length, k1, k2)
     optimizer = torch.optim.Adam([x], lr=lr)
     SpecOrig = torch.abs(get_batch_stft(x_orig.unsqueeze(0), win_length)[0, :, :])
     losses = []
@@ -49,20 +49,11 @@ def add_bits(filename_in, filename_out, sr, pattern, Gamma=15, lam=0.1, fwin=16,
         optimizer.zero_grad()
         xtan = torch.tanh(x)
         Speci = torch.abs(get_batch_stft(xtan.unsqueeze(0), win_length)[0, :, :])
-        loss2 = lam*torch.mean(torch.abs(SpecOrig-Speci)[:, 0:win_length//4])
+        loss2 = lam*torch.mean(torch.abs(torch.log(SpecOrig+1e-6)-torch.log(Speci+1e-6))[:, 0:win_length//4])
         loss1 = 0
         for off in offsets:
-            BEst, _, _ = decoder_fn(xtan[off:])
-        
-            BEst = BEst.flatten()
-            n_repeats = BEst.numel()//pattern_length
-            BTarget = np.ones((n_repeats, 1))*pattern[None, :]
-            BTarget = torch.from_numpy(BTarget.flatten()).to(device)
-            BEst = BEst[0:BTarget.numel()]
-            
-            BEst = BEst.flatten()
-            BEst = sigmoid_scale*BEst
-            loss1 += bce_loss(BEst, 1.0*BTarget)/len(offsets)
+            proj = decoder_fn(xtan[off:])
+            loss1 -= torch.sum(proj)
 
         loss = loss1 + loss2
         losses.append(loss.item())
@@ -71,7 +62,7 @@ def add_bits(filename_in, filename_out, sr, pattern, Gamma=15, lam=0.1, fwin=16,
         optimizer.step()
         
         if i%100 == 0:
-            print(i, loss1.item(), loss2.item())
+            print(i, loss1.item(), loss2.item(), torch.mean(proj).item())
 
     ## Step 4: Save transformed audio
     xtan = torch.tanh(x).detach().cpu().numpy().flatten()

@@ -312,3 +312,48 @@ def raw_avg_decode(x, avg_win, Gamma=11, fwin=16):
     norm = torch.sqrt(12*num/(denom*10**(Gamma/10))) + 1e-3
     x = x/norm
     return torch.cos(2*np.pi*x), torch.sin(2*np.pi*x)
+
+def stft_log_decode(x, win_length, k1, k2, sigma_cos):
+    """
+    A simple decoder with no QIM
+
+    Parameters
+    ----------
+    x: torch.tensor(n_samples)
+        Audio samples
+    win_length: int
+        Window length to use in STFT
+    k1: int
+        First frequency bin, inclusive
+    k2: int
+        Last frequency bin, inclusive
+    sigma_cos: float
+        Amount by which to scale before composing with cosine
+    """
+    S = torch.abs(get_batch_stft(x.unsqueeze(0), win_length)[0, :, k1:k2+1])
+    S = torch.log(S + 1e-6)
+    return torch.cos(sigma_cos*S)
+
+def spread_spec_proj(x, pattern, win_length, k1, k2):
+    """
+    A spread spectrum decoder which reports the projection onto a pattern
+    after subtracting the mean of a log 
+
+    Parameters
+    ----------
+    x: torch.tensor(n_samples)
+        Audio samples
+    pattern: torch.tensor(k2-k1+1)
+        Pattern on which to project
+    win_length: int
+        Window length to use in STFT
+    k1: int
+        First frequency bin, inclusive
+    k2: int
+        Last frequency bin, inclusive
+    """
+    S = torch.abs(get_batch_stft(x.unsqueeze(0), win_length)[0, :, k1:k2+1])
+    S = torch.log(S+1e-6)
+    S = S - torch.mean(S, dim=1, keepdims=True)
+    proj = torch.sum(S*pattern.view(1, S.shape[1]), dim=1)
+    return proj
