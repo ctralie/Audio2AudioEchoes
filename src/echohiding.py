@@ -135,18 +135,26 @@ def get_cepstrum(x):
     F = np.fft.irfft(np.log(F+1e-8))
     return F
 
-
-def get_pn(L, seed):
+def fix_pn_2(p):
     """
-    Compute a pseudo-random sequence that contains no runs
+    Map a pseudorandom sequence onto the space of sequences of runs
     of length more than 2, as per [1]
 
     [1] Yong Xiang, Dezhong Peng, Iynkaran Natgunanathan, Wanlei Zhou
     "Effective Pseudonoise Sequence and Decoding Function for Imperceptibility 
     and Robustness Enhancement in Time-Spread Echo-Based Audio Watermarking"
+
+    Parameters
+    ----------
+    p: ndarray(L)
+        Pseudorandom sequence in {-1, 1}^L
+
+    Returns
+    -------
+    q: ndarray(L)
+        Pseudorandom sequence with no runs of length more than 2
     """
-    np.random.seed(seed)
-    p = 2*np.random.randint(0, 2, L)-1
+    L = p.size
     q = np.zeros(L)
     q[0] = p[0]
     q[-1] = p[-1]
@@ -168,11 +176,34 @@ def echo_hide_pn(x, q, delta, alpha=0.01):
     ----------
     x: ndarray(N)
         Audio samples
+    q: ndarray(L)
+        Pseudorandom sequence to hide
     delta: int
-        Delay of the echo
+        Delay at which to insert the pseudorandom sequence
     alpha: float
-        Amplitude of echo
+        Amplitude of pseudorandom sequence
     """
     from scipy.signal import fftconvolve
     h = np.concatenate(([1], np.zeros(delta-1), alpha*q))
     return fftconvolve(x, h, mode='valid')
+
+def get_z_score_pn(c, delta, buff=3):
+    """
+    Compute a z-score for the correlation vector for a PN sequence
+
+    Parameters
+    ----------
+    c: ndarray(N)
+        Correlation vector
+    delta: int
+        Delay at which to check for the pseudorandom sequence
+    buff: int
+        Buffer on either side of delta to ignore when computing mu/std
+        for z-score
+    """
+    cmu = np.array(c)
+    cmu[0:buff] = np.nan
+    cmu[delta-buff:delta+buff+1] = np.nan
+    mu = np.nanmean(cmu)
+    std = np.nanstd(cmu)
+    return (c[delta]-mu)/std
