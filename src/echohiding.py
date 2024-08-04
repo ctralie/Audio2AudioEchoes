@@ -134,3 +134,45 @@ def get_cepstrum(x):
     F = np.abs(np.fft.rfft(x))
     F = np.fft.irfft(np.log(F+1e-8))
     return F
+
+
+def get_pn(L, seed):
+    """
+    Compute a pseudo-random sequence that contains no runs
+    of length more than 2, as per [1]
+
+    [1] Yong Xiang, Dezhong Peng, Iynkaran Natgunanathan, Wanlei Zhou
+    "Effective Pseudonoise Sequence and Decoding Function for Imperceptibility 
+    and Robustness Enhancement in Time-Spread Echo-Based Audio Watermarking"
+    """
+    np.random.seed(seed)
+    p = 2*np.random.randint(0, 2, L)-1
+    q = np.zeros(L)
+    q[0] = p[0]
+    q[-1] = p[-1]
+    for n in range(1, L-1):
+        y = (q[n-1] + p[n-1] + p[n] + p[n+1])
+        if y > 0:
+            y = y//4
+        else:
+            y = -((-y)//4)
+        q[n] = ((-1)**y)*p[n]
+    return q
+
+def echo_hide_pn(x, q, delta, alpha=0.01):
+    """
+    Hide a pseudorandom sequence q at offset of delta
+    and amplitude alpha
+
+    Parameters
+    ----------
+    x: ndarray(N)
+        Audio samples
+    delta: int
+        Delay of the echo
+    alpha: float
+        Amplitude of echo
+    """
+    from scipy.signal import fftconvolve
+    h = np.concatenate(([1], np.zeros(delta-1), alpha*q))
+    return fftconvolve(x, h, mode='valid')

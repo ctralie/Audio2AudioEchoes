@@ -1,0 +1,3 @@
+[submodule "dance-diffusion"]
+	path = dance-diffusion
+	url = https://github.com/ctralie/dance-diffusion.git
