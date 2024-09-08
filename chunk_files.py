@@ -23,6 +23,8 @@ if __name__ == "__main__":
         os.mkdir(outdir)
     idx = 0
     files = glob.glob(opt.indir + os.path.sep + "**", recursive=True)
+    files = [f for f in files if not os.path.isdir(f)]
+    print("files", files)
     for i in tqdm(range(len(files))):
         try:
             x, _ = librosa.load(files[i], sr=sr, mono=False)

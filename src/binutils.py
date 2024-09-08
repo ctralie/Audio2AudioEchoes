@@ -80,3 +80,36 @@ def text2binimg(s, N):
     data[data < 255] = 0
     data = data/255
     return data
+
+
+def fix_pn_2(p):
+    """
+    Map a pseudorandom sequence onto the space of sequences of runs
+    of length more than 2, as per [1]
+
+    [1] Yong Xiang, Dezhong Peng, Iynkaran Natgunanathan, Wanlei Zhou
+    "Effective Pseudonoise Sequence and Decoding Function for Imperceptibility 
+    and Robustness Enhancement in Time-Spread Echo-Based Audio Watermarking"
+
+    Parameters
+    ----------
+    p: ndarray(L)
+        Pseudorandom sequence in {-1, 1}^L
+
+    Returns
+    -------
+    q: ndarray(L)
+        Pseudorandom sequence with no runs of length more than 2
+    """
+    L = p.size
+    q = np.zeros(L)
+    q[0] = p[0]
+    q[-1] = p[-1]
+    for n in range(1, L-1):
+        y = (q[n-1] + p[n-1] + p[n] + p[n+1])
+        if y > 0:
+            y = y//4
+        else:
+            y = -((-y)//4)
+        q[n] = ((-1)**y)*p[n]
+    return q

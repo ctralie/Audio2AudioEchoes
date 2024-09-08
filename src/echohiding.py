@@ -135,38 +135,6 @@ def get_cepstrum(x):
     F = np.fft.irfft(np.log(F+1e-8))
     return F
 
-def fix_pn_2(p):
-    """
-    Map a pseudorandom sequence onto the space of sequences of runs
-    of length more than 2, as per [1]
-
-    [1] Yong Xiang, Dezhong Peng, Iynkaran Natgunanathan, Wanlei Zhou
-    "Effective Pseudonoise Sequence and Decoding Function for Imperceptibility 
-    and Robustness Enhancement in Time-Spread Echo-Based Audio Watermarking"
-
-    Parameters
-    ----------
-    p: ndarray(L)
-        Pseudorandom sequence in {-1, 1}^L
-
-    Returns
-    -------
-    q: ndarray(L)
-        Pseudorandom sequence with no runs of length more than 2
-    """
-    L = p.size
-    q = np.zeros(L)
-    q[0] = p[0]
-    q[-1] = p[-1]
-    for n in range(1, L-1):
-        y = (q[n-1] + p[n-1] + p[n] + p[n+1])
-        if y > 0:
-            y = y//4
-        else:
-            y = -((-y)//4)
-        q[n] = ((-1)**y)*p[n]
-    return q
-
 def echo_hide_pn(x, q, delta, alpha=0.01):
     """
     Hide a pseudorandom sequence q at offset of delta
@@ -187,14 +155,33 @@ def echo_hide_pn(x, q, delta, alpha=0.01):
     h = np.concatenate(([1], np.zeros(delta-1), alpha*q))
     return fftconvolve(x, h, mode='valid')
 
-def get_z_score_pn(c, delta, buff=3):
+def get_cepstrum(x):
     """
-    Compute a z-score for the correlation vector for a PN sequence
+    Compute the cepstrum of an entire chunk of audio
+
+    Parameters
+    ----------
+    x: ndarray(N)
+        Audio samples
+    
+    Returns
+    -------
+    ndarray(N)
+        Cepstrum
+    """
+    x = x*hann(x.size)
+    F = np.abs(np.fft.rfft(x))
+    F = np.fft.irfft(np.log(F+1e-8))
+    return F
+
+def get_z_score(c, delta, buff=0):
+    """
+    Compute a z-score for the a correlation vector or cepstrum
 
     Parameters
     ----------
     c: ndarray(N)
-        Correlation vector
+        Correlation vector/cepstrum
     delta: int
         Delay at which to check for the pseudorandom sequence
     buff: int

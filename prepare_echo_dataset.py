@@ -13,7 +13,6 @@ from utils import walk_dir
 import time
 import glob
 import os
-import librosa
 from scipy.io import wavfile
 from multiprocessing import Pool
 
