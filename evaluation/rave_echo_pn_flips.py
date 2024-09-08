@@ -64,8 +64,6 @@ def eval_pn_echo_models_bit_flips(opt):
 
 
 if __name__ == '__main__':
-
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--idx", type=int, required=True, help="Index of experiment to specify on the cluster")
     parser.add_argument("--base_dir", type=str, required=True, help="Base directory with the ArtistProtect repository")
@@ -96,7 +94,7 @@ if __name__ == '__main__':
     (instrument, opt.pn, opt.dur, opt.seed) = list(itertools.product(instruments, pns, durs, seeds))[opt.idx]
     train_dataset = {"drums":"groove", "other":"guitarset", "vocals":"vocalset"}[instrument]
     opt.model_path = f"{opt.base_dir}/ArtistProtectModels/PNEchoes/{train_dataset}_pn{opt.pn}.ts"
-    opt.out_path = f"{opt.base_dir}/evaluation/results/pnflip_pn{opt.pn}_dur{opt.dur}_seed{opt.seed}.json"
+    opt.out_path = f"{opt.base_dir}/evaluation/results/pnflip_{instrument}_pn{opt.pn}_dur{opt.dur}_seed{opt.seed}.json"
     opt.dataset_pattern = f"{opt.base_dir}/MusdbTrain/*/{instrument}.wav"
 
     eval_pn_echo_models_bit_flips(opt)
