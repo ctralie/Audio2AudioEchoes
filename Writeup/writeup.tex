@@ -45,9 +45,7 @@ Article submission, IEEE, IEEEtran, journal, \LaTeX, paper, template, typesettin
 
 We use modified ideas from echo hiding \cite{gruhl1996echo}.
 
-There are myriad techniques for generative audio instrument training (todo: citations), but to show the general applicability of this technique in a replicable way, we pick three models with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave} Dance Diffusion \cite{evans2022dancediffusion}, and differentiable digital signal processing (DDSP) \cite{engelddsp}.  Each model is trained on audio only
-
-To further enhance replicability, we train models with different conditions on each of three datasets, VocalSet \cite{wilkins2018vocalset}, Groove \cite{groove2019}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model by applying it to the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.
+There are myriad techniques for generative audio instrument training (todo: citations), but to show the general applicability of this technique in a replicable way, we pick three open models with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave} Dance Diffusion \cite{evans2022dancediffusion}, and differentiable digital signal processing (DDSP) \cite{engelddsp}.  Each model is trained on audio only, as opposed to those also involving language models (e.g. \cite{evans2024fast}) or MIDI (e.g. \cite{hawthornemulti}), and each model is trained on a collection of instrument sounds from the same instrument.  Specifically, we train models with different conditions on each of three open datasets to further enhance replicability: VocalSet \cite{wilkins2018vocalset}, Groove \cite{groove2019}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model by applying it to the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.
 
 Time spread echo hiding \cite{ko2005time}.  We use kernels that are designed to be more robust \cite{xiang2010effective}, but we find they don't work as well
 
@@ -57,6 +55,8 @@ Time spread echo hiding \cite{ko2005time}.  We use kernels that are designed to 
 Explain RAVE and dance diffusion architectures
 
 \section{Experiments}
+
+Specifics on architectures, with number of parameters
 
 \subsection{Audio format}
 Every audio sample in the training sets is converted to a 44100hz mono 

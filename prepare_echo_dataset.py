@@ -2,14 +2,12 @@
 Prepare an echo dataset for rave
 """
 
-import sys
-sys.path.append("src")
 import argparse
 import subprocess
 import numpy as np
-from audioutils import load_audio_fast_wav
-from echohiding import echo_hide_constant
-from utils import walk_dir
+from src.audioutils import load_audio_fast_wav
+from src.echohiding import echo_hide_constant
+from src.utils import walk_dir
 import time
 import glob
 import os
