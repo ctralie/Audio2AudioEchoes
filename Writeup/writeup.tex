@@ -1,0 +1,91 @@
+\documentclass[lettersize,journal]{IEEEtran}
+\usepackage{amsmath,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{array}
+\usepackage[caption=false,font=normalsize,labelfont=sf,textfont=sf]{subfig}
+\usepackage{textcomp}
+\usepackage{stfloats}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{cite}
+\hyphenation{op-tical net-works semi-conduc-tor IEEE-Xplore}
+% updated with editorial comments 8/9/2021
+
+\begin{document}
+
+\title{Hidden Echoes Survive Generative Audio Instrument Training}
+
+\author{Christopher J. Tralie, Matt Amery, Benjamin Douglas, Ian Utz
+        % <-this % stops a space
+\thanks{Manuscript received April 19, 2021; revised August 16, 2021.}}
+
+% The paper headers
+\markboth{Journal of \LaTeX\ Class Files,~Vol.~14, No.~8, August~2021}%
+{Shell \MakeLowercase{\textit{et al.}}: A Sample Article Using IEEEtran.cls for IEEE Journals}
+
+\IEEEpubid{0000--0000/00\$00.00~\copyright~2021 IEEE}
+% Remember, if you use this you must call \IEEEpubidadjcol in the second
+% column for its text to clear the IEEEpubid mark.
+
+\maketitle
+
+\begin{abstract}
+
+
+
+\end{abstract}
+
+\begin{IEEEkeywords}
+Article submission, IEEE, IEEEtran, journal, \LaTeX, paper, template, typesetting.
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+We use modified ideas from echo hiding \cite{gruhl1996echo}.
+
+There are myriad techniques for generative audio instrument training (todo: citations), but to show the general applicability of this technique in a replicable way, we pick three models with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave} Dance Diffusion \cite{evans2022dancediffusion}, and differentiable digital signal processing (DDSP) \cite{engelddsp}.  Each model is trained on audio only
+
+To further enhance replicability, we train models with different conditions on each of three datasets, VocalSet \cite{wilkins2018vocalset}, Groove \cite{groove2019}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model by applying it to the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.
+
+Time spread echo hiding \cite{ko2005time}.  We use kernels that are designed to be more robust \cite{xiang2010effective}, but we find they don't work as well
+
+
+\section{Background}
+
+Explain RAVE and dance diffusion architectures
+
+\section{Experiments}
+
+\subsection{Audio format}
+Every audio sample in the training sets is converted to a 44100hz mono 
+
+We use dance diffusion with a 81920 sample size, which means the receptive field spans about 1.86 seconds.  As the authors of \cite{hawthornemulti} note, using a network trained with a smaller context to synthesize audio clips may result in audible timbre shifts from one section to another; however, this is fine for a proof of concept
+
+
+\section{Conclusion}
+The conclusion goes here.
+
+
+\section*{Acknowledgments}
+
+
+
+
+%{\appendices
+%\section*{Proof of the First Zonklar Equation}
+%Appendix one text goes here.
+% You can choose not to have a title for an appendix if you want by leaving the argument blank
+%\section*{Proof of the Second Zonklar Equation}
+%Appendix two text goes here.}
+
+
+\bibliographystyle{IEEEtran}
+\bibliography{writeup}
+
+
+
+\end{document}
+
+
