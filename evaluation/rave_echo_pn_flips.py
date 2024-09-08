@@ -89,7 +89,7 @@ if __name__ == '__main__':
 
 
     ## Define parameter variations
-    instruments = ["drums", "other_", "vocals"]
+    instruments = ["drums", "other", "vocals"]
     pns = list(range(8))
     durs = [5, 10, 30, 60]
     seeds = list(range(4)) # Do different runs with different chunks
