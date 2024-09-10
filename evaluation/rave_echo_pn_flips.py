@@ -5,6 +5,7 @@ from scipy.signal import correlate
 import sys
 import glob
 import json
+import os
 from tqdm import tqdm
 from collections import defaultdict
 import argparse
@@ -29,11 +30,19 @@ def eval_pn_echo_models_bit_flips(opt):
 
     q = PN_PATTERNS_1024_8[pn]
     L = q.size
-    results = defaultdict(lambda: [])
+    results = {}
+    if os.path.exists(opt.out_path):
+        results = json.load(open(opt.out_path))
     model = torch.jit.load(opt.model_path).eval()
     model = model.to(opt.device)
 
     for f in tqdm(files):
+        tune = f.split("/")[-2]
+        if tune in results:
+            print("Skipping", tune)
+            continue
+        else:
+            results[tune] = defaultdict(lambda: [])
         x, _ = librosa.load(f, sr=sr)
         with torch.no_grad():
             z = model.encode(torch.from_numpy(x).to(opt.device).reshape(1,1,-1))
@@ -52,14 +61,12 @@ def eval_pn_echo_models_bit_flips(opt):
 
                 c = correlate(cep, q2, mode='valid', method='fft')
                 z = get_z_score(c[0:L+2*opt.lag], opt.lag, buff=3)
-                results[("reg", bit_flip)].append(z)
+                results[tune][f"reg_{bit_flip}"].append(z)
                 
                 c2 = correlate(c, [-0.5, 1, -0.5], mode='valid', method='fft')
                 z2 = get_z_score(c2[0:L+2*opt.lag], opt.lag-1, buff=3)
-                results[("enhanced", bit_flip)].append(z2)
-
-            results_save = { "_".join([str(s) for s in key]):value for key, value in results.items()}
-            json.dump(results_save, open(opt.out_path, "w"))
+                results[tune][f"enhanced_{bit_flip}"].append(z2)
+        json.dump(results, open(opt.out_path, "w"))
 
 
 
