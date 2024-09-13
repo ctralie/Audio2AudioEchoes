@@ -174,6 +174,30 @@ def get_cepstrum(x):
     F = np.fft.irfft(np.log(F+1e-8))
     return F
 
+def correlate_pn(cep, q, n):
+    """
+    Compute the first n correlations of a cepstrum with
+    a PN pattern
+
+    Parameters
+    ----------
+    cep: ndarray(n_samples)
+        Cepstrum
+    q: ndarray(L)
+        PN pattern
+    n: int
+        Number of lags to take from [0, n-1]
+
+    Returns
+    -------
+    ndarray(n)
+        Correlation at the offets from 0 to n-1
+    """
+    ret = np.zeros(n)
+    for i in range(n):
+        ret[i] = np.sum(cep[i:i+q.size]*q)
+    return ret
+
 def get_z_score(c, delta, buff=0):
     """
     Compute a z-score for the a correlation vector or cepstrum
