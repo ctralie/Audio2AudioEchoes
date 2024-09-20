@@ -25,7 +25,7 @@ def add_echo(params):
     print("{}, {}, Elapsed {}\n\n".format(filename_in, filename_out, time.time()-tic))
 
 
-def prepare_rave(dataset_path, output_path, alpha, temp_dir, sr=44100, n_threads=10):
+def prepare_dataset(dataset_path, output_path, alpha, temp_dir, sr=44100, n_threads=10, use_rave=True):
     ## Step 1: Cleanup temp directory
     for f in glob.glob("{}/*".format(temp_dir)):
         os.remove(f)
@@ -54,16 +54,21 @@ def prepare_rave(dataset_path, output_path, alpha, temp_dir, sr=44100, n_threads
     with Pool(n_threads) as p:
         p.map(add_echo, zip(filenames_in, filenames_out, [sr]*N, lags, [alpha]*N))
     
-    ## Step 3: Preprocess with rave
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
-    cmd = ["rave", "preprocess", "--input_path", temp_dir, "--output_path", output_path+"/", "--channels", "1"]
-    print(cmd)
-    subprocess.call(cmd)
+    if use_rave:
+        ## Step 3: Preprocess with rave
+        cmd = ["rave", "preprocess", "--input_path", temp_dir, "--output_path", output_path+"/", "--channels", "1"]
+        print(cmd)
+        subprocess.call(cmd)
 
-    ## Step 4: Clear temp directory
-    for f in glob.glob("{}/*".format(temp_dir)):
-        os.remove(f)
+        ## Step 4: Clear temp directory
+        for f in glob.glob("{}/*".format(temp_dir)):
+            os.remove(f)
+    else:
+        ## If not using rave, simply move the files directly to their final location
+        for f in glob.glob("{}/*".format(temp_dir)):
+            cmd = ["mv", f, output_path]
+            print(cmd)
+            subprocess.call(cmd)
 
     print("Finished")
 
@@ -76,9 +81,10 @@ if __name__ == "__main__":
     parser.add_argument('--temp_dir', type=str, required=True, help="Path to temporary folder to which to save modified dataset (cleared before and after echoes are created)")
     parser.add_argument('--sr', type=int, default=44100, help="Audio sample rate")
     parser.add_argument('--n_threads', type=int, default=10, help="Number of threads to use")
+    parser.add_argument("--use_rave", type=int, default=1, help="Whether to use rave.")
     opt = parser.parse_args()
 
-    prepare_rave(opt.dataset_path, opt.output_path, opt.alpha, opt.temp_dir, opt.sr, opt.n_threads)
+    prepare_dataset(opt.dataset_path, opt.output_path, opt.alpha, opt.temp_dir, opt.sr, opt.n_threads, opt.use_rave==1)
     
 
 
