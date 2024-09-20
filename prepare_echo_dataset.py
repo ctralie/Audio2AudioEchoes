@@ -1,5 +1,5 @@
 """
-Prepare an echo dataset for rave
+Prepare an echo dataset for the different models
 """
 
 import argparse

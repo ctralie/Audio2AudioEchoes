@@ -88,6 +88,7 @@ def eval_pn_echo_models_bit_flips(param):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--base_dir", type=str, required=True, help="Base directory with the ArtistProtect repository")
+    parser.add_argument("--min", type=int, default=0, help="Minimum index of experiment to run")
     parser.add_argument("--max", type=int, required=True, help="Maximum index of experiment to run")
     parser.add_argument("--n_threads", type=int, default=10, help="Number of threads to use")
     #parser.add_argument("--idx", type=int, required=True, help="Index of experiment to specify on the cluster")
@@ -101,4 +102,4 @@ if __name__ == '__main__':
     base_dir = opt.base_dir
 
     with Pool(opt.n_threads) as p:
-        p.map(eval_pn_echo_models_bit_flips, zip(range(opt.max), [opt]*opt.max))
+        p.map(eval_pn_echo_models_bit_flips, zip(range(opt.min, opt.max), [opt]*opt.max))

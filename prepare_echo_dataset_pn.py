@@ -1,8 +1,7 @@
 """
-Prepare an echo dataset for rave
+Prepare a pseudorandom noise echo dataset for the models
 """
 
-import sys
 import argparse
 import subprocess
 import numpy as np
