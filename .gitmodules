@@ -1,3 +1,6 @@
 [submodule "dance-diffusion"]
 	path = dance-diffusion
 	url = https://github.com/ctralie/dance-diffusion.git
+[submodule "RAVE"]
+	path = RAVE
+	url = https://github.com/ctralie/RAVE.git
