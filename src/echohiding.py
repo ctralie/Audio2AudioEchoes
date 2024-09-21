@@ -198,9 +198,13 @@ def correlate_pn(cep, q, n):
         ret[i] = np.sum(cep[i:i+q.size]*q)
     return ret
 
-def get_z_score(c, delta, buff=0):
+def get_z_score(c, delta, buff=0, start_buff=0):
     """
     Compute a z-score for the a correlation vector or cepstrum
+    at a particular offset
+    The mean/std are computed ignoring the offset location, and
+    there is the option to ignore locations from the beginning or
+    slightly to the left / slightly to the right of the location
 
     Parameters
     ----------
@@ -211,9 +215,13 @@ def get_z_score(c, delta, buff=0):
     buff: int
         Buffer on either side of delta to ignore when computing mu/std
         for z-score
+    start_buff: int
+        Ignore this many from the start when computing mu/std 
+        for z-score
     """
     cmu = np.array(c)
-    cmu[0:buff] = np.nan
+    if start_buff > 0:
+        cmu[0:start_buff] = np.nan
     cmu[delta-buff:delta+buff+1] = np.nan
     mu = np.nanmean(cmu)
     std = np.nanstd(cmu)
