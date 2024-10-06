@@ -13,7 +13,7 @@ from multiprocessing import Pool
 
 ## Define parameter variations
 instruments = ["drums", "other", "vocals"]
-echoes = [50, 75, 100, "clean"]
+echoes = [50, 75, 76, 100, "clean"]
 durs = [5, 10, 30, 60]
 seeds = list(range(4)) # Do different runs with different chunks
 
@@ -25,7 +25,7 @@ def eval_echo_models(param):
     (idx, opt) = param
     (instrument, echo, dur, seed) = list(itertools.product(instruments, echoes, durs, seeds))[idx]
     train_dataset = {"drums":"groove", "other":"guitarset", "vocals":"vocalset"}[instrument]
-    model_path = f"{opt.base_dir}/ArtistProtectModels/SingleEchoes/{train_dataset}_{echo}.ts"
+    model_path = f"{opt.base_dir}/ArtistProtectModels/SingleEchoes/Rave/{train_dataset}_{echo}.ts"
     out_path = f"{opt.base_dir}/evaluation/results/{instrument}_{echo}_dur{dur}_seed{seed}.json"
     dataset_pattern = f"{opt.base_dir}/MusdbTrain/*/{instrument}.wav"
     print("Doing", instrument, echo, dur, seed)
@@ -42,6 +42,9 @@ def eval_echo_models(param):
     results = {}
     if os.path.exists(out_path):
         results = json.load(open(out_path))
+    if not os.path.exists(model_path):
+        print(model_path, "doesn't exist!  Aborting")
+        return
     model = torch.jit.load(model_path).eval()
     model = model.to(opt.device)
 
@@ -96,7 +99,5 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     base_dir = opt.base_dir
 
-    #with Pool(opt.n_threads) as p:
-    #    p.map(eval_echo_models, zip(range(opt.min, opt.max), [opt]*opt.max))
-    for i in range(opt.min, opt.max):
-        eval_echo_models((i, opt))
+    with Pool(opt.n_threads) as p:
+        p.map(eval_echo_models, zip(range(opt.min, opt.max), [opt]*opt.max))
