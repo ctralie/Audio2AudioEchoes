@@ -6,24 +6,26 @@ import argparse
 import subprocess
 import numpy as np
 from src.audioutils import load_audio_fast_wav
-from src.echohiding import echo_hide_constant
+from src.echohiding import echo_hide_pn
 from src.utils import walk_dir
+from src.binutils import get_hadamard_codes
 import time
 import glob
 import os
 from scipy.io import wavfile
 from multiprocessing import Pool
 
+CODES = get_hadamard_codes(1024)
+
 def add_echo(params):
-    (filename_in, filename_out, sr, lag, alpha) = params
-    lags = [lag]
+    (filename_in, filename_out, sr, pattern_idx, lag, alpha) = params
     tic = time.time()
     x = load_audio_fast_wav(filename_in, sr)
-    x = echo_hide_constant(x, lags, [alpha]*len(lags))
+    q = CODES[pattern_idx, :]
+    x = echo_hide_pn(x, q, lag, alpha)
     x = np.array(x*32767, dtype=np.int16)
     wavfile.write(filename_out, sr, x)
     print("{}, {}, Elapsed {}\n\n".format(filename_in, filename_out, time.time()-tic))
-
 
 def prepare_dataset(dataset_path, output_path, alpha, temp_dir, sr=44100, n_threads=10, use_rave=True):
     ## Step 1: Cleanup temp directory
@@ -31,9 +33,9 @@ def prepare_dataset(dataset_path, output_path, alpha, temp_dir, sr=44100, n_thre
         os.remove(f)
     
     ## Step 2: Gather list of files and send them off to be processed
-    vowels = {"a":50, "e":60, "i":70, "o":80, "u":90}
+    vowels = {"a":1, "e":3, "i":5, "o":7, "u":9}
     filenames_in = []
-    lags = []
+    pattern_idxs = []
     for f in walk_dir(dataset_path):
         singer = f.split("/")[-4]
         if singer == "female9" or singer == "male11":
@@ -42,17 +44,17 @@ def prepare_dataset(dataset_path, output_path, alpha, temp_dir, sr=44100, n_thre
             end = f"_{v}.wav"
             if f[-len(end):] == end:
                 filenames_in.append(f)
-                lag = vowels[v]
+                pattern_idx = vowels[v]
                 if not "female" in singer:
-                    lag += 5 # Do +5 lag for male
-                lags.append(lag)
-                print(f, lags[-1])
+                    pattern_idx += 1 # Do +5 lag for male
+                pattern_idxs.append(pattern_idx)
+                print(f, pattern_idxs[-1])
                 break
     
     N = len(filenames_in)
     filenames_out = ["{}/{}.wav".format(temp_dir, i) for i in range(N)]
     with Pool(n_threads) as p:
-        p.map(add_echo, zip(filenames_in, filenames_out, [sr]*N, lags, [alpha]*N))
+        p.map(add_echo, zip(filenames_in, filenames_out, [sr]*N, pattern_idxs, [alpha]*N))
     
     if use_rave:
         ## Step 3: Preprocess with rave
@@ -77,7 +79,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset_path', type=str, required=True, help="Path to dataset")
     parser.add_argument('--output_path', type=str, required=True, help="Path to which to output rave prepared dataset")
-    parser.add_argument('--alpha', type=float, default=0.4, help='Strength of echo')
+    parser.add_argument('--alpha', type=float, default=0.01, help='Strength of echo')
     parser.add_argument('--temp_dir', type=str, required=True, help="Path to temporary folder to which to save modified dataset (cleared before and after echoes are created)")
     parser.add_argument('--sr', type=int, default=44100, help="Audio sample rate")
     parser.add_argument('--n_threads', type=int, default=10, help="Number of threads to use")

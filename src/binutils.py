@@ -113,3 +113,40 @@ def fix_pn_2(p):
             y = -((-y)//4)
         q[n] = ((-1)**y)*p[n]
     return q
+
+def get_hadamard_basis(L):
+    """
+    Compute the Hadamard basis for size L
+
+    Returns
+    -------
+    ndarray(log2(L), L)
+        The Hadamard basis
+    """
+    k = int(np.log2(L))
+    B = np.zeros((k, L), dtype=int)
+    for i in range(k):
+        v = 0
+        for j in range(L):
+            if j % (L/(2**(i+1))) == 0:
+                v = (v+1)%2
+            B[i, j] = v
+    return B
+
+def get_hadamard_codes(L):
+    """
+    Compute the (non-augmented) hadamard codes for size L
+
+    Returns
+    -------
+    ndarray(L, L, dtype=int)
+        Hadamard codes
+    """
+    B = get_hadamard_basis(L)
+    X = np.zeros((L, L), dtype=int)
+    for i in range(L):
+        b = [int(x) for x in bin(i)[2:]]
+        b = [0]*(B.shape[0]-len(b)) + b
+        b = np.array(b)
+        X[i, :] = (b.dot(B)) % 2
+    return X
