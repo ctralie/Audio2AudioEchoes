@@ -13,7 +13,8 @@ from multiprocessing import Pool
 
 ## Define parameter variations
 
-STYLES = {"belt":50, "breathy":60, "trill":70, "vibrato":80, "vocal_fry":90}
+#STYLES = {"belt":50, "breathy":60, "trill":70, "vibrato":80, "vocal_fry":90}
+STYLES = {"male":50, "female":75}
 
 def eval_tags(opt):
     """
@@ -36,7 +37,8 @@ def eval_tags(opt):
     model = model.to(opt.device)
 
     for style in STYLES:
-        patt = f"{opt.dataset_path}/*/*/*/*{style}*.wav"
+        #patt = f"{opt.dataset_path}/*/*/*/*{style}*.wav"
+        patt = f"{opt.dataset_path}/{style}*/*/*/*.wav"
         print(patt)
         files = glob.glob(patt)
         print(style, files)

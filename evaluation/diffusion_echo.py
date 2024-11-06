@@ -19,7 +19,7 @@ sample_rate = 44100
 instruments = ["drums", "other", "vocals"]
 echoes = [50, 75, 76, 100, "clean"]
 durs = [5, 10, 30, 60]
-noise_levels = [0.2, 0.1]
+noise_levels = [0.2] #[0.2, 0.1]
 
 
 def eval_echo_models(param):
@@ -28,8 +28,6 @@ def eval_echo_models(param):
     """
     (idx, opt) = param
     sys.path.append(f"{opt.base_dir}/dance-diffusion/audio_diffusion")
-    from blocks import SkipBlock, FourierFeatures, SelfAttention1d, ResConvBlock, Downsample1d, Upsample1d
-    from models import DiffusionAttnUnet1D
     from utils import load_model_for_synthesis, do_style_transfer
 
     (instrument, echo, noise_level) = list(itertools.product(instruments, echoes, noise_levels))[idx]
@@ -68,7 +66,7 @@ def eval_echo_models(param):
             results[tune] = {dur:defaultdict(lambda: []) for dur in durs}
         x, _ = librosa.load(f, sr=sr)
         ## Go through every 60 second chunk in the file
-        offsets60 = int(np.ceil(x.size/(sr*60)))
+        offsets60 = x.size//(sr*60)
         for idx60 in range(offsets60):
             print(f"Doing 60 second offset {idx60+1} of {offsets60}")
             xi = x[idx60*sr*60:(idx60+1)*sr*60]

@@ -155,25 +155,6 @@ def echo_hide_pn(x, q, delta, alpha=0.01):
     h = np.concatenate(([1], np.zeros(delta-1), alpha*q))
     return fftconvolve(x, h, mode='valid')
 
-def get_cepstrum(x):
-    """
-    Compute the cepstrum of an entire chunk of audio
-
-    Parameters
-    ----------
-    x: ndarray(N)
-        Audio samples
-    
-    Returns
-    -------
-    ndarray(N)
-        Cepstrum
-    """
-    x = x*hann(x.size)
-    F = np.abs(np.fft.rfft(x))
-    F = np.fft.irfft(np.log(F+1e-8))
-    return F
-
 def correlate_pn(cep, q, n):
     """
     Compute the first n correlations of a cepstrum with
