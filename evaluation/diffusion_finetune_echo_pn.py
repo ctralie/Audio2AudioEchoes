@@ -16,8 +16,8 @@ import itertools
 ## Define parameter variations
 sample_size = 81920
 sample_rate = 44100  
-instrument = "drums"
-train_dataset = "groove"
+instrument = "vocals"
+train_dataset = "vocalset"
 echoes = list(range(8)) + ["clean"]
 durs = [5, 10, 30, 60]
 noise_levels = [0.2] #[0.2, 0.1]
@@ -121,8 +121,6 @@ def eval_echo_models(param):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--base_dir", type=str, required=True, help="Base directory with the ArtistProtect repository")
-    parser.add_argument("--min", type=int, default=0, help="Minimum index of experiment to run")
-    parser.add_argument("--max", type=int, required=True, help="Maximum index of experiment to run")
     parser.add_argument('--device', type=str, default="cuda", help="Device to use for model")
     parser.add_argument('--n_chunks', type=int, default=100, help="Max number of chunks to compute for each clip for each duration")
     parser.add_argument('--sr', type=int, default=44100, help="Audio sample rate")
@@ -134,5 +132,5 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     base_dir = opt.base_dir
 
-    for idx in range(opt.min, opt.max):
+    for idx in range(len(echoes)*len(noise_levels)):
         eval_echo_models((idx, opt))
