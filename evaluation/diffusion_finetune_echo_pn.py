@@ -85,33 +85,33 @@ def eval_echo_models(param):
                     i1 = 0
                     if dur < 60:
                         i1 = np.random.randint(y.size-dur*sr) # Choose a random offset
-                cep = get_cepstrum(y[i1:i1+sr*dur])
-                
-                ## Do random bit flips and score
-                if echo != "clean":
-                    q = PN_PATTERNS_1024_8[echo]
-                    for bit_flip in range(0, L, opt.bit_flip_jump):
-                        q2 = np.array(q)
-                        idx_flip = np.random.permutation(L)[0:bit_flip]
-                        q2[idx_flip] = (q2[idx_flip] + 1)%2
+                    cep = get_cepstrum(y[i1:i1+sr*dur])
+                    
+                    ## Do random bit flips and score
+                    if echo != "clean":
+                        q = PN_PATTERNS_1024_8[echo]
+                        for bit_flip in range(0, L, opt.bit_flip_jump):
+                            q2 = np.array(q)
+                            idx_flip = np.random.permutation(L)[0:bit_flip]
+                            q2[idx_flip] = (q2[idx_flip] + 1)%2
 
-                        c = correlate_pn(cep, q2, L+2*opt.lag)
+                            c = correlate_pn(cep, q2, L+2*opt.lag)
+                            z = get_z_score(c, opt.lag, buff=3, start_buff=3)
+                            results[tune][dur][f"reg_{bit_flip}"].append(z)
+                            
+                            c2 = np.correlate(c, [-0.5, 1, -0.5])
+                            z2 = get_z_score(c2[0:L+2*opt.lag], opt.lag-1, buff=3, start_buff=3)
+                            results[tune][dur][f"enhanced_{bit_flip}"].append(z2)
+                    
+                    ## Check all pseudorandom patterns and score
+                    for qidx, q in enumerate(PN_PATTERNS_1024_8):
+                        c = correlate_pn(cep, q, L+2*opt.lag)
                         z = get_z_score(c, opt.lag, buff=3, start_buff=3)
-                        results[tune][dur][f"reg_{bit_flip}"].append(z)
+                        results[tune][dur][f"reg_pn{qidx}"].append(z)
                         
                         c2 = np.correlate(c, [-0.5, 1, -0.5])
                         z2 = get_z_score(c2[0:L+2*opt.lag], opt.lag-1, buff=3, start_buff=3)
-                        results[tune][dur][f"enhanced_{bit_flip}"].append(z2)
-                
-                ## Check all pseudorandom patterns and score
-                for qidx, q in enumerate(PN_PATTERNS_1024_8):
-                    c = correlate_pn(cep, q, L+2*opt.lag)
-                    z = get_z_score(c, opt.lag, buff=3, start_buff=3)
-                    results[tune][dur][f"reg_pn{qidx}"].append(z)
-                    
-                    c2 = np.correlate(c, [-0.5, 1, -0.5])
-                    z2 = get_z_score(c2[0:L+2*opt.lag], opt.lag-1, buff=3, start_buff=3)
-                    results[tune][dur][f"enhanced_pn{qidx}"].append(z2)
+                        results[tune][dur][f"enhanced_pn{qidx}"].append(z2)
 
 
         json.dump(results, open(out_path, "w"))
