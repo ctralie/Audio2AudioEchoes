@@ -19,7 +19,7 @@ sample_rate = 44100
 instruments = ["drums", "other", "vocals"]
 echoes = [50, 75, 76, 100, "clean"]
 durs = [5, 10, 30, 60]
-noise_levels = [0.2] #[0.2, 0.1]
+noise_levels = [0.2, 0.1]
 
 
 def eval_echo_models(param):
@@ -65,11 +65,13 @@ def eval_echo_models(param):
         else:
             results[tune] = {dur:defaultdict(lambda: []) for dur in durs}
         x, _ = librosa.load(f, sr=sr)
-        ## Go through every 60 second chunk in the file
-        offsets60 = x.size//(sr*60)
-        for idx60 in range(offsets60):
-            print(f"Doing 60 second offset {idx60+1} of {offsets60}")
-            xi = x[idx60*sr*60:(idx60+1)*sr*60]
+        ## Pick out a 60 second chunk in the file
+        if x.size < sr*60:
+            print(f"{f} too short, skipping")
+            continue
+        else:
+            idx = np.random.randint(x.size-sr*60)
+            xi = x[idx:idx+sr*60]
             n = sample_size*(xi.size//sample_size)
             xi = xi[0:n]
             xi = torch.from_numpy(xi[None, None, :]).to(opt.device)

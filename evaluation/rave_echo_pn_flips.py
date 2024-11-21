@@ -13,7 +13,7 @@ from multiprocessing import Pool
 
 ## Define parameter variations
 instruments = ["drums", "other", "vocals"]
-pns = list(range(8))
+pns = list(range(8)) + ["clean"]
 durs = [5, 10, 30, 60]
 seeds = list(range(4)) # Do different runs with different chunks
 

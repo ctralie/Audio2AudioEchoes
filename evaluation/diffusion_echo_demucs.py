@@ -57,7 +57,7 @@ def eval_echo_models(param):
 
     n_sample = sample_size*(60*sample_rate//sample_size)
 
-    for tune_path in tunes:
+    for tune_idx, tune_path in enumerate(tunes):
         tune = tune_path.split("/")[-1]
         if tune in results:
             print("Skipping", tune)
@@ -65,6 +65,7 @@ def eval_echo_models(param):
         else:
             results[tune] = {dur:{instrument: defaultdict(lambda: []) for instrument in ["drums", "guitar", "vocals"]} for dur in durs}
         with torch.no_grad():
+            print(f"Doing tune {tune_idx+1} of {len(tunes)}")
             ## Step 1: Encode each stem using the appropriate instrument model
             xdrums, sr = librosa.load(f"{tune_path}/drums.wav", sr=sample_rate)
             xguitar, sr = librosa.load(f"{tune_path}/other.wav", sr=sample_rate)
@@ -80,7 +81,7 @@ def eval_echo_models(param):
             xvocals = xvocals[idx:idx+n_sample]
             ybass = ybass[idx:idx+n_sample]
             
-            
+            print("Doing drums...")
             model = load_model_for_synthesis(f"{model_basepath}/groove_{groove_echo}.ckpt", sample_size, sample_rate, opt.device)
             xdrums = torch.from_numpy(xdrums[None, None, :]).to(opt.device)
             ygroove = do_style_transfer(model, xdrums, steps=100, noise_level=noise_level,device=opt.device)
@@ -89,6 +90,7 @@ def eval_echo_models(param):
             gc.collect()
             torch.cuda.empty_cache()
 
+            print("Doing guitar...")
             model = load_model_for_synthesis(f"{model_basepath}/guitarset_{guitarset_echo}.ckpt", sample_size, sample_rate, opt.device)
             xguitar = torch.from_numpy(xguitar[None, None, :]).to(opt.device)
             yguitar = do_style_transfer(model, xguitar, steps=100, noise_level=noise_level,device=opt.device)
@@ -97,6 +99,7 @@ def eval_echo_models(param):
             gc.collect()
             torch.cuda.empty_cache()
 
+            print("Doing vocals...")
             model = load_model_for_synthesis(f"{model_basepath}/vocalset_{vocalset_echo}.ckpt", sample_size, sample_rate, opt.device)
             xvocals = torch.from_numpy(xvocals[None, None, :]).to(opt.device)
             yvocals = do_style_transfer(model, xvocals, steps=100, noise_level=noise_level,device=opt.device)
@@ -106,6 +109,7 @@ def eval_echo_models(param):
             torch.cuda.empty_cache()
 
             ## Step 2: Mix together and demix with demucs
+            print("Demixing...")
             N = min(ygroove.size, yguitar.size, yvocals.size, ybass.size)
             ymix = ygroove + yguitar + yvocals + ybass
             del ygroove

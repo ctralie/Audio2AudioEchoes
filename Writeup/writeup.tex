@@ -91,7 +91,7 @@
 % nouns, adverbs, adjectives should be capitalized, including both words in hyphenated terms, while
 % articles, conjunctions, and prepositions are lower case unless they
 % directly follow a colon or long dash
-\title{Hidden Echoes Survive Training in Generative Instrument Models}
+\title{Hidden Echoes Survive Training in Audio To Audio Generative Instrument Models}
 \author{
     %Authors
     % All authors must be in the same font size and format.
@@ -176,47 +176,116 @@ We use modified ideas from echo hiding \cite{gruhl1996echo}.
 
 There are myriad techniques for generative audio instrument training (todo: citations), but to show the general applicability of this technique in a replicable way, we pick three open models with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave} Dance Diffusion \cite{evans2022dancediffusion}, and differentiable digital signal processing (DDSP) \cite{engelddsp}.  Each model is trained on audio only, as opposed to those also involving language models (e.g. \cite{evans2024fast}) or MIDI (e.g. \cite{hawthornemulti}), and each model is trained on a collection of instrument sounds from the same instrument.  Specifically, we train models with different conditions on each of three open datasets to further enhance reproducibility: VocalSet \cite{wilkins2018vocalset}, Groove \cite{groove2019}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model by applying it to the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.  
 
-Note that there are a lot of silences in individual traks, but this mirrors a more realistic scenario
+Note that there are a lot of silences in individual tracks, but this mirrors a more realistic scenario
 
-Time spread echo hiding \cite{ko2005time}.  We use kernels that are designed to be more robust \cite{xiang2010effective}, but we find they don't work as well
+
 
 
 \section{Background}
 
-Explain RAVE and dance diffusion architectures
 
-\section{Main Experiments}
+
+\section{Methods}
+
+Every audio sample in the training sets is converted to a 44100hz mono 
+
+\subsection{Audio Models}
+
+Explain RAVE and dance diffusion architectures
 
 Specifics on architectures, with number of parameters
 
-\subsection{Audio format}
-Every audio sample in the training sets is converted to a 44100hz mono 
-
 We use dance diffusion with a 81920 sample size, which means the receptive field spans about 1.86 seconds.  As the authors of \cite{hawthornemulti} note, using a network trained with a smaller context to synthesize audio clips may result in audible timbre shifts from one section to another; however, this is fine for a proof of concept
 
-\subsection{Single Echoes}
 
-50, 75, 76, 100 for all instruments, plus percentage tagged for all models
+
+
+\subsection{Single Echo Experiments}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/RaveCepstra.pdf}
+    \caption{Embedding 30 seconds of an excerpt from Prince}
+    \label{fig:ravecepstra}
+\end{figure}
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/RaveZScoreExamples.pdf}
+    \caption{As this example with various tagged vocalset training data shows, the z-scores for a 75 echo are much higher for the models that are trained on a dataset with a 75 echo embedded in every clip, and the separation increases with increasing clip duration.}
+    \label{fig:ravezscoreexamples}
+\end{figure}
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/DanceDiffusionZScoreExamples.pdf}
+    \caption{Dance diffusion example}
+    \label{fig:dancediffusionzscoreexamples}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/DDSPZScoreExamples.pdf}
+    \caption{DDSP example}
+    \label{fig:ddspzscoreexamples}
+\end{figure}
+
+
+\begin{figure*}
+    \centering
+    \onecolumn
+    \includegraphics[width=\textwidth]{figs/SingleEchoTable.png}
+    
+    \caption{Single echo results}
+    \label{fig:singleechotable}
+    \twocolumn
+\end{figure*}
+
+
+Define cepstrum
+
+Define z-score
+
+Explain musdb experiment
+
+Table for 50, 75, 76, 100 for all instruments, plus percentage tagged for all models
+
+
+
+
+
+
+
 
 \subsection{Pseudorandom Echo Sequences}
 
-
+Time spread echo hiding \cite{ko2005time}.  We use kernels that are designed to be more robust \cite{xiang2010effective}, but we find they don't work as well
 
 \section{Additional Use Cases}
 
+We now explore thin slices through a few additional uses cases to highlight the versatility of the hidden echoes
+
+
+
 \subsection{Dance Diffusion Fine Tuning}
+
+Show results only on groove and vocalset since guitarset is too small
+
+
+\subsection{Single Echo Demixing}
+
 
 
 \subsection{Rave Pitch Shift Augmentation}
 
 
-\subsection{DDSP Reverb}
-
 
 \subsection{Tagging Datasets}
 
 
-\subsection{Demixing}
+
 
 
 
