@@ -10,6 +10,7 @@
 \def\UrlFont{\rm}  % DO NOT CHANGE THIS
 \usepackage{natbib}  % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
 \usepackage{caption} % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\usepackage{amsmath}
 \frenchspacing  % DO NOT CHANGE THIS
 \setlength{\pdfpagewidth}{8.5in} % DO NOT CHANGE THIS
 \setlength{\pdfpageheight}{11in} % DO NOT CHANGE THIS
@@ -174,9 +175,7 @@
 
 We use modified ideas from echo hiding \cite{gruhl1996echo}.
 
-There are myriad techniques for generative audio instrument training (todo: citations), but to show the general applicability of this technique in a replicable way, we pick three open models with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave} Dance Diffusion \cite{evans2022dancediffusion}, and differentiable digital signal processing (DDSP) \cite{engelddsp}.  Each model is trained on audio only, as opposed to those also involving language models (e.g. \cite{evans2024fast}) or MIDI (e.g. \cite{hawthornemulti}), and each model is trained on a collection of instrument sounds from the same instrument.  Specifically, we train models with different conditions on each of three open datasets to further enhance reproducibility: VocalSet \cite{wilkins2018vocalset}, Groove \cite{groove2019}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model by applying it to the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.  
-
-Note that there are a lot of silences in individual tracks, but this mirrors a more realistic scenario
+There are myriad techniques for generative audio instrument training (todo: citations), but to show the general applicability of this technique in a replicable way, we pick three open models with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave} Dance Diffusion \cite{evans2022dancediffusion}, and differentiable digital signal processing (DDSP) \cite{engelddsp}.  Each model is trained on audio only, as opposed to those also involving language models (e.g. \cite{evans2024fast}) or MIDI (e.g. \cite{hawthornemulti}), and each model is trained on a collection of instrument sounds from the same instrument.  Specifically, we train models with different conditions on each of three open datasets to further enhance reproducibility: VocalSet \cite{wilkins2018vocalset}, Groove \cite{groove2019}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model using the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq} as inputs to models trained under various conditions.  This is a difficult audio watermarking scenario, as long moments of silence may be present in individual stems.
 
 
 
@@ -189,25 +188,77 @@ Note that there are a lot of silences in individual tracks, but this mirrors a m
 
 Every audio sample in the training sets is converted to a 44100hz mono 
 
-\subsection{Audio Models}
+\subsection{Audio To Audio Models}
 
 Explain RAVE and dance diffusion architectures
 
 Specifics on architectures, with number of parameters
 
-We use dance diffusion with a 81920 sample size, which means the receptive field spans about 1.86 seconds.  As the authors of \cite{hawthornemulti} note, using a network trained with a smaller context to synthesize audio clips may result in audible timbre shifts from one section to another; however, this is fine for a proof of concept
+We use dance diffusion with a 81920 sample size, which means the receptive field spans about 1.86 seconds.  As the authors of \cite{hawthornemulti} note, using a network trained with a smaller context to synthesize audio clips may result in audible timbre shifts from one section to another; however, this is fine for a proof of concept.
 
 
-
-
-\subsection{Single Echo Experiments}
+\subsection{Echo Hiding}
+\label{sec:echohiding}
 
 \begin{figure}
     \centering
     \includegraphics[width=\columnwidth]{figs/RaveCepstra.pdf}
-    \caption{Embedding 30 seconds of an excerpt from Prince}
+    \caption{An example of cepstra computed on style transfer of a 30 second excerpt of a Prince jazz session at Loring Park.  Rave models trained on data with different echoes at 50, 75, and 100 lead to visible peaks at the respective places in their ceptra on the synthesized clips.}
     \label{fig:ravecepstra}
 \end{figure}
+
+Given a discrete audio ``carrier waveform'' $x$, audio watermarking techniques hide a binary payload in a watermarked waveform $\hat{x}$ so that $x$ and $\hat{x}$ are perceptually indistinguishable.  The original echo hiding paper by \cite{gruhl1996echo} accomplishes this by creating two waveforms $x_0$ and $x_1$, each with a single echo; 
+\begin{equation}
+    \begin{aligned}
+        x_0[n] &= x[n] + \alpha x[n - \delta_0] \\
+        x_1[n] &= x[n] + \alpha x[n - \delta_1]
+    \end{aligned}
+\end{equation}
+
+ where $\alpha$ trades off perceptibility and robustness of the watermark and is generally much less than 1, and $\delta_0 = \delta_1$ are both less than 100 samples at a 44.1khz sample rate.  These waveforms are then mixed together in windows to create $\hat{x}$ according to the payload; where $x_0$ is fully mixed at the center of a window if the payload contains a 0 at that moment and $x_1$ is fully mixed in if the payload contains a 0.  For a window length of 1024 samples, for instance, this amounts to about 43 bits per second at 44.1khz.  Since convolution in the time domain is multiplication in the frequency domain, the logarithm of the magnitude of the DFT of a window additively separates the frequency response of the echo from the frequency response of the original signal.  Therefore, the so-called ``cepstrum'' of a windowed signal $x_w$:
+ 
+\begin{equation}
+    \label{eq:cepstrum}
+    c = \text{ifft} ( \log ( | \text{fft} (x_w) | ) )
+\end{equation}
+ 
+yields a signal in which a single echo is a high peak, which is referred to as the ``cepstrum'' $c$ \footnote{\cite{gruhl1996echo} note that it is more mathematically correct take the {\em complex logarithm} of the DFT before taking the inverse DFT, and they further enhance with an autocorrelation.  But we found better results with the traditional cepstrum.}.  Thus, to decode the payload from the watermarked signal, one computes $c$ on each window and infers a 0 if $c[\delta_0] > c[\delta_1]$ or a 1 otherwise.
+
+Since we seek to hide echoes in the training data for generative models, it is unlikely that the models we train will synthesize the windows in the same order they occur in the training set.  Therefore, we do away with the windowing completely and instead hide {\em the same echo} $\delta \in [50, 100]$ in {\em the entire audio clip} of {\em each waveform in the training data}.  We then examine the cepstrum $c$ of an entire clip that comes out of our models.  To score the cepstrum value at $\delta$ in a loudness-independent way, we compute the {\em z-score} at each lag $i$ as follows.  First, let $\mu_c[i]$ be the mean at $i$ excluding $i$:
+
+\begin{equation}
+    \mu_{c}[i] = \left( \sum_{j=25, 26, ..., i-1, i+1, 150} c[j] \right) / 125
+\end{equation}
+
+and let $\sigma_{c}[i]$ be 
+
+\begin{equation}
+    \sigma_{c}[i] = \sqrt{ \left( \sum_{j=25, 26, ..., i-1, i+1, 150} (c[j] - \mu_c[i])^2 \right) / 125}
+\end{equation}
+
+then
+
+\begin{equation}
+z[i]_{c} = \mu_{c}[i] / \sigma_{c}[i]
+\end{equation}
+
+
+A model trained on data watermarked with echo $\delta$ works well if $z[\delta] > z[i \neq \delta]$.  Figure~\ref{fig:ravecepstra} shows example cepstra from clips created with different Rave\cite{caillon2021rave} models trained on the GuitarSet \cite{xi2018guitarset} dataset, with various echoes $\delta$.  The peaks and z-scores show that the models reproduce the echoes they were trained on.  We will evaluate this more extensively in the experiment section (Figure~\ref{fig:singleechotable}).
+
+\subsection{Pseudorandom Echo Patterns}
+
+Though we have found single echoes to be robust, the information capacity is low.  Since we hide echoes between 50 and 100 at integer values, we can store at most ~5.6 bits of information in a single dataset.  To increase the information capacity, we also explore followup work on 
+
+
+
+
+
+\section{Experiments}
+
+\subsection{Single Echo Experiments}
+\label{sec:experimentssingleecho}
+
+
 
 
 \begin{figure}
@@ -220,33 +271,29 @@ We use dance diffusion with a 81920 sample size, which means the receptive field
 
 \begin{figure}
     \centering
-    \includegraphics[width=\columnwidth]{figs/DanceDiffusionZScoreExamples.pdf}
-    \caption{Dance diffusion example}
-    \label{fig:dancediffusionzscoreexamples}
+    \includegraphics[width=\columnwidth]{figs/DDSPZScoreExamples.pdf}
+    \caption{DDSP models show the strongest preservation of echoes, as measured by the z-score}
+    \label{fig:ddspzscoreexamples}
 \end{figure}
 
 \begin{figure}
     \centering
-    \includegraphics[width=\columnwidth]{figs/DDSPZScoreExamples.pdf}
-    \caption{DDSP example}
-    \label{fig:ddspzscoreexamples}
+    \includegraphics[width=\columnwidth]{figs/DanceDiffusionZScoreExamples.pdf}
+    \caption{Dance diffusion models show slightly weaker z-scores that may be mixed up between adjacent echoes, but they still reproduce the correct echoes overall.}
+    \label{fig:dancediffusionzscoreexamples}
 \end{figure}
 
 
 \begin{figure*}
     \centering
     \onecolumn
-    \includegraphics[width=\textwidth]{figs/SingleEchoTable.png}
+    \includegraphics[width=\textwidth]{figs/AllSingleEchoZScores.pdf}
     
     \caption{Single echo results}
     \label{fig:singleechotable}
     \twocolumn
 \end{figure*}
 
-
-Define cepstrum
-
-Define z-score
 
 Explain musdb experiment
 

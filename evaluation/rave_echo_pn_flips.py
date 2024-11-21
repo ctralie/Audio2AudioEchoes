@@ -26,7 +26,7 @@ def eval_pn_echo_models_bit_flips(param):
     (idx, opt) = param
     (instrument, pn, seed) = list(itertools.product(instruments, pns, seeds))[idx]
     train_dataset = {"drums":"groove", "other":"guitarset", "vocals":"vocalset"}[instrument]
-    model_path = f"{opt.base_dir}/ArtistProtectModels/PNEchoes/{train_dataset}_pn{pn}.ts"
+    model_path = f"{opt.base_dir}/ArtistProtectModels/PNEchoes/Rave/{train_dataset}_pn{pn}.ts"
     out_path = f"{opt.base_dir}/evaluation/results/rave_{instrument}_pn{pn}_seed{seed}.json"
     dataset_pattern = f"{opt.base_dir}/MusdbTrain/*/{instrument}.wav"
     print("Doing", instrument, pn, seed)
@@ -124,6 +124,7 @@ if __name__ == '__main__':
 
     if opt.max == -1:
         opt.max = len(instruments)*len(pns)*len(seeds)
+    print("opt.max", opt.max)
 
     for idx in range(opt.min, opt.max+1):
         eval_pn_echo_models_bit_flips((idx, opt))
