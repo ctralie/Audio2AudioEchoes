@@ -158,6 +158,7 @@
 \maketitle
 
 \begin{abstract}
+As generative techniques pervade the audio domain, there has been increasing interest in identifying whether data that was used to train a model was licensed properly. In this paper, we show that if imperceptible echoes are hidden in the training data, a wide variety of audio to audio architectures (differentiable digital signal processing (DDSP), Realtime Audio Variational autoEncoder (RAVE), and ``Dance Diffusion'') will reproduce these echoes in their outputs. Hiding a single echo is particularly robust, and we show initial results towards hiding longer time spread echo patterns. We also show that echoes make their way into fine tuned models, and they also survive demixing. Hence, this simple, classical idea in watermarking shows a lot of promise for tagging generative audio models. 
 
 \end{abstract}
 
@@ -170,6 +171,8 @@
 % \end{links}
 
 \section{Introduction}
+
+This result is surprising!
 
 We use modified ideas from echo hiding \cite{gruhl1996echo}.
 
@@ -184,11 +187,11 @@ Below we briefly describe the three generative audio to audio models we use, as 
 
 \subsection{Audio To Audio Models}
 
-Explain DDSP, RAVE and dance diffusion architectures
+Explain DDSP, RAVE and Dance Diffusion architectures
 
-DDSP has $\approx$5 million parameters, Rave has $\approx$32 million parameters, and dance diffusion $\approx$222 million parameters
+DDSP has $\approx$5 million parameters, Rave has $\approx$32 million parameters, and Dance Diffusion $\approx$222 million parameters
 
-We use dance diffusion with a 81920 sample size, which means the receptive field spans about 1.86 seconds.  As the authors of \cite{hawthornemulti} note, using a network trained with a smaller context to synthesize audio clips may result in audible timbre shifts from one section to another; however, this is fine for a proof of concept.
+We use Dance Diffusion with a 81920 sample size, which means the receptive field spans about 1.86 seconds.  As the authors of \cite{hawthornemulti} note, using a network trained with a smaller context to synthesize audio clips may result in audible timbre shifts from one section to another; however, this is fine for a proof of concept.
 
 
 \subsection{Echo Hiding}
@@ -222,16 +225,16 @@ Since convolution in the time domain is multiplication in the frequency domain, 
  
 yields a signal in which a single echo is a high peak, which is referred to as the ``cepstrum'' $c$ \footnote{\cite{gruhl1996echo} note that it is more mathematically correct take the {\em complex logarithm} of the DFT before taking the inverse DFT, and they further enhance with an autocorrelation.  But we found better results with the traditional cepstrum.}.  Thus, to decode the payload from the watermarked signal, one computes $c$ on each window and infers a 0 if $c[\delta_0] > c[\delta_1]$ or a 1 otherwise.
 
-Since we seek to hide echoes in the training data for generative models, it is unlikely that the models we train will synthesize the windows in the same order they occur in the training set.  Therefore, we do away with the windowing completely and instead hide {\em the same echo} $\delta$ in {\em the entire audio clip} of {\em each waveform in the training data}.  We then examine the cepstrum $c$ of an entire clip that comes out of our models.  To score the cepstrum value at $\delta$ in a loudness-independent way, we compute the {\em z-score} at each lag $i$ as follows.  First, let $\mu_{c}^{a,b}[i]$ be the mean at $i$ excluding $i$:
+Since we seek to hide echoes in the training data for generative models, it is unlikely that the models we train will synthesize the windows in the same order they occur in the training set.  Therefore, we do away with the windowing completely and instead hide {\em the same echo} $\delta$ in {\em the entire audio clip} of {\em each waveform in the training data}.  We then examine the cepstrum $c$ of an entire clip that comes out of our models.  To score the cepstrum value at $\delta$ in a loudness-independent way, we compute the {\em z-score} at each lag $i$ as follows.  First, let $\mu_{c}^{a,b}[i]$ be the mean of $c$ on the interval $[a, b]$, excluding $i$:
 
 \begin{equation}
-    \mu_{c}^{a,b}[i] = \left( \sum_{j=a, a+1, ..., b} c[j] \right) / (b-a+1)
+    \mu_{c}^{a,b}[i] = \left( \sum_{\substack{j=a \\ j \neq i}}^{b} c[j] \right) / (b-a)
 \end{equation}
 
 and let $\sigma_{c}^{a,b}[i]$ be 
 
 \begin{equation}
-    \sigma_{c}^{a,b}[i] = \sqrt{ \left( \sum_{j=a, a+1, ..., b} (c[j] - \mu_c[i])^2 \right) / (b-a+1)}
+    \sigma_{c}^{a,b}[i] = \sqrt{ \left( \sum_{\substack{j=a \\ j \neq i}}^{b} (c[j] - \mu_c[i])^2 \right) / (b-a)}
 \end{equation}
 
 then
@@ -242,14 +245,14 @@ then
 \end{equation}
 
 
-A model trained on data watermarked with echo $\delta$ works well if $z^{a,b}_{\delta}[\delta] > z^{a,b}_{i}[i], i \neq \delta$.  In our experiments, we use $\alpha = 0.4$, $\delta \in \{50, 76, 76, 100\}$, $a=25$, and $b=125$.  Henceforth, we will assume those parameters and simply refer to the z-scores as $z$.  Figure~\ref{fig:ravecepstra} shows example cepstra from clips created with different Rave\cite{caillon2021rave} models trained on the GuitarSet \cite{xi2018guitarset} dataset, with various echoes $\delta$.  The peaks and z-scores show that the models reproduce the echoes they were trained on.  We will evaluate this more extensively in the experiment section (Figure~\ref{fig:singleechotable}).
+A model trained on data watermarked with echo $\delta$ works well if $z^{a,b}_{\delta}[\delta] > z^{a,b}_{i}[i], i \neq \delta$.  In our experiments, we use $\alpha = 0.4$, $\delta \in \{50, 76, 76, 100\}$, $a=25$, and $b=125$.  Henceforth, we will assume those parameters and simply refer to these numbers as ``the z-scores $z$.''  Figure~\ref{fig:ravecepstra} shows example cepstra from clips created with different Rave\cite{caillon2021rave} models trained on the GuitarSet \cite{xi2018guitarset} dataset, with various echoes $\delta$.  The peaks and z-scores show that the models reproduce the echoes they were trained on.  We will evaluate this more extensively in the experiment section (Figure~\ref{fig:singleechotable}).
 
 \subsection{Time Spread Echo Patterns}
 
 \begin{figure}
     \centering
     \includegraphics[width=\columnwidth]{figs/RavePNCepstra.pdf}
-    \caption{Comparing a 30 second style transfer using a Rave model with a pseudorandom echo pattern $p$ embedded in the training data to one without any pattern.  The cross-correlation of the cepstrum with $p$ peaks for the model with the embedded pattern. }
+    \caption{Comparing a 30 second style transfer using a Rave model with a time spread echo pattern $p$ embedded in the training data to one without any pattern.  The cross-correlation of the cepstrum with $p$ peaks for the model with the embedded pattern. }
     \label{fig:ravepncepstra}
 \end{figure}
 
@@ -261,14 +264,16 @@ Though we have found single echoes to be robust, the information capacity is low
 
 where, to maintain perceptual transparency, $\alpha$ is generally significantly smaller than it is for a single echo; we use $\alpha = 0.01$.  To uncover the hidden pattern, one computes the cepstrum $c$ according to Equation~\ref{eq:cepstrum}, and then does a cross-correlation of $c$ with $(2p - 1)$ to obtain a signal $c^*$.  If the echo pattern is well preserved, then $c^*[\delta] > c^*[i \neq \delta]$.
 
-As in the original echo hiding paper, this work hides $p$ at different offsets $\delta$ in two different signals for hiding a 1 or a 0, but, once again, we hide the same pseudorandom echo at the same lag $\delta=75$ for the entire clip in the training data of our models.  We then compute the $z$-score $z_{c^*}^{a,b}$ on $c^*$ on the model outputs using an equation analogous to Equation~\ref{eq:zscore}, though we set $a = 3, b=L+\delta$, and we also exclude the samples of $c^*$ 3 to the left and 3 to the right when computing $\mu_{c^*}^{a,b}$ and $\sigma_{c^*}^{a,b}$.  Overall, we create 8 different versions of each training set we have, each embedded with a different pseudorandom echo pattern of length $L=1024$.  Furthermore, we ensure that the 28 pairwise Hamming distances between the 8 pseudorandom patterns are approximately uniformly distributed between 0 and 1024.  Figure~\ref{fig:ravepncepstra} shows an example of a style transfer on a model trained on data with the first pseudorandom pattern embedded in all of the training data.
+As in the original echo hiding paper, this work hides $p$ at different offsets $\delta$ in two different signals for hiding a 1 or a 0, but, once again, we hide the same time spread echo at the same lag $\delta=75$ for the entire clip in the training data of our models.  We then compute the $z$-score $z_{c^*}^{a,b}$ on $c^*$ on the model outputs using an equation analogous to Equation~\ref{eq:zscore}, though we set $a = 3, b=L+\delta$, and we also exclude the samples of $c^*$ 3 to the left and 3 to the right when computing $\mu_{c^*}^{a,b}$ and $\sigma_{c^*}^{a,b}$.  Overall, we create 8 different versions of each training set we have, each embedded with a different time spread echo pattern of length $L=1024$.  Furthermore, we ensure that the 28 pairwise Hamming distances between the 8 time spread patterns are approximately uniformly distributed between 0 and 1024.  Figure~\ref{fig:ravepncepstra} shows an example of a style transfer on a model trained on data with the first time spread pattern embedded in all of the training data.
 
 
-Note that followup work by \cite{xiang2010effective} suggests ensuring that the pseudorandom echo patterns don't have more than two 0's or two 1's in a row, which skews the perturbations in $\hat{x}$ to less perceptible higher frequencies.  In this case, one can also compute an enhanced cross-correlation signal as $c^*[n] - 0.5c^*[n-1] - 0.5c^*[n+1]$.  Though we ensured that our pseudorandom echo patterns satisfied this property, we did not find an improvement in our experiments, so we stick to the original cross-correlation z-score.
+Note that followup work by \cite{xiang2010effective} suggests ensuring that the time spread echo patterns don't have more than two 0's or two 1's in a row, which skews the perturbations in $\hat{x}$ to less perceptible higher frequencies.  In this case, one can also compute an enhanced cross-correlation signal as $c^*[n] - 0.5c^*[n-1] - 0.5c^*[n+1]$.  Though we ensured that our time spread echo patterns satisfied this property, we did not find an improvement in our experiments, so we stick to the original cross-correlation z-score.
 
 \section{Experiments}
 
-To rigorously evaluate the efficacy of our echo watermarks, we train each of our three different model architectures on 3 different datasets:  the training set for Groove \cite{groove2019} ($\approx$8 hours), the entire VocalSet dataset \cite{wilkins2018vocalset} ($\approx$6 hours), and the entire GuitarSet dataset \cite{xi2018guitarset} ($\approx$3 hours).  For each model+architecture combination, we train a variety of models with different embedded echo patterns in the training set.  Once each model is trained, we send through as input multiple random segments of lengths 5, 10, 30, and 60 seconds, drawn from each of the 100 corresponding stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.  In particular, models trained on VocalSet get the ``vocals'' stems, models trained on Groove get the ``drums'' stems, and models trained on Guitarset get ``other'' stems (which are mostly acoustic and electric guitar).  Finally, we report z-scores for various echoes/pseudorandom patterns on the outputs of the models.
+To rigorously evaluate the efficacy of our echo watermarks, we train each of our three different model architectures on 3 different datasets:  the training set for Groove \cite{groove2019} ($\approx$8 hours), the entire VocalSet dataset \cite{wilkins2018vocalset} ($\approx$6 hours), and the entire GuitarSet dataset \cite{xi2018guitarset} ($\approx$3 hours).  For each model+architecture combination, we train a variety of models with different embedded echo patterns in the training set.  Once each model is trained, we send through as input multiple random segments of lengths 5, 10, 30, and 60 seconds, drawn from each of the 100 corresponding stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.  In particular, models trained on VocalSet get the ``vocals'' stems, models trained on Groove get the ``drums'' stems, and models trained on Guitarset get ``other'' stems (which are mostly acoustic and electric guitar).  Finally, we report z-scores for various single echo and time spread echo patterns on the outputs of the models.
+
+We train Rave for 1.3 million steps for Groove and 2 million steps for GuitarSet and VocalSet.  We train Dance Diffusion for 50,000 steps on all models, and we train DDSP for 500,000 samples on all models.
 
 \subsection{Single Echo Experiments}
 \label{sec:experimentssingleecho}
@@ -292,7 +297,7 @@ To rigorously evaluate the efficacy of our echo watermarks, we train each of our
 \begin{figure}
     \centering
     \includegraphics[width=\columnwidth]{figs/DanceDiffusionZScoreExamples.pdf}
-    \caption{Dance diffusion models show slightly weaker z-scores that may be mixed up between adjacent echoes, but they still reproduce the correct echoes overall.}
+    \caption{Dance Diffusion models show slightly weaker z-scores that may be mixed up between adjacent echoes, but they still reproduce the correct echoes overall.}
     \label{fig:dancediffusionzscoreexamples}
 \end{figure}
 
@@ -304,7 +309,7 @@ To rigorously evaluate the efficacy of our echo watermarks, we train each of our
     \label{fig:singleechotable}
 \end{figure*}
 
-For these experiments, we train each architecture on each of the original VocalSet, GuitarSet, and Groove datasets, as well as on each of these datasets with an embedded echo of 50, 75, 76, and 100.  Figures~\ref{fig:ravezscoreexamples},~\ref{fig:ddspzscoreexamples}, and~\ref{fig:dancediffusionzscoreexamples} show distributions of z-scores for models trained with an echo of 75 and tested with the corresponding stems.  Figure~\ref{fig:singleechotable} shows the mean and standard deviation of z-scores over all architectures over all instruments over all echoes.  The echoes are quite robust over all architectures.  The only weakness is a mixup of the adjacent echoes 75 and 76 for the dance diffusion models.
+For these experiments, we train each architecture on each of the original VocalSet, GuitarSet, and Groove datasets, as well as on each of these datasets with an embedded echo of 50, 75, 76, and 100.  Figures~\ref{fig:ravezscoreexamples},~\ref{fig:ddspzscoreexamples}, and~\ref{fig:dancediffusionzscoreexamples} show distributions of z-scores for models trained with an echo of 75 and tested with the corresponding stems.  Figure~\ref{fig:singleechotable} shows the mean and standard deviation of z-scores for the MUSDB18-HQ clips over all architectures over all instruments over all echoes.  The echoes are quite robust over all architectures.  The only weakness is a mixup of the adjacent echoes 75 and 76 for the Dance Diffusion models.
 
 
 TODO: Show percentage tagged
@@ -312,8 +317,24 @@ TODO: Show percentage tagged
 
 
 
-\subsection{Pseudorandom Echo Sequences}
+\subsection{Time Spread Echo Sequences}
 
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/DrumsPNModel_pn0.pdf}
+    \caption{The further away the perturbed correlated pattern $p'$ gets from the truly embedded pattern $p$, the smaller the z-scores get, increasing the AUROC of z-scores from $p$ and $p'$.  Increasing the length of the synthesized clip (depicted as color) also leads to stronger detection capability.  Finally, the z-scores of $p$ in the embedded model are easily distinguishable from the z-scores of $p$ in the clean model (x's in left plot, dotted lines in right plot).}
+    \label{fig:drumspn7}
+\end{figure}
+
+For these experiments, we train Rave and DDSP on 8 time spread echo patterns embedded in each dataset.  We omit fully training dance diffusion with these patterns due to computational constraints, and due to the fact that fine tuning with these patterns shows poor results.
+
+To evaluate the results, we once again examine the outputs of multiple random clips from the 100 examples in the MUSDB18-HQ training set.  To get a clearer picture of the extent to which each model captures the time spread pattern, we compute z-scores on the $c^*$ correlating with the original pattern $p$ on the output cepstra, and we also compute z-scores after correlating with a perturbed version $p'$ of $p$ with an increasing number of bits randomly flipped.  To quantify how the z-scores change, we compute an ROC curve, where the true positives are z-scores correlating to $p$, and the false positives are correlating to the perturbed versions $p'$.  
+
+Figure~\ref{fig:drumspn7} shows an example of this evaluation on the first time spread echo pattern embedded in the Groove dataset.  The right plot shows the corresponding ROC curves for 512 bits flipped at different durations, as well as ROC curves where the false positives are z-scores in a clean model correlating $p$.
+
+
+
+Inter-model comparisons of z-scores are more challenging here compared to single echoes due to the variation in embedding strength from model to model.   However, within each model we always get a positive slope in AUROC vs bits flipped, and we can always tell the difference with the clean model, both which indicate that the correct echo patterns survive training.
 
 
 \section{Additional Use Cases}
@@ -333,11 +354,23 @@ Show results only on groove and vocalset since guitarset is too small
 
 \subsection{Rave Pitch Shift Augmentation}
 
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/RavePercPitchShift.pdf}
+    \caption{Z-scores decrease for an increasing probability of pitch augmentation, though even when pitch shifting 100\% of the time, the z-scores are still distinguishable from those of the clean model.}
+    \label{fig:pitchshiftaugmentation}
+\end{figure}
 
+Data augmentation is an important part of training deep generative models.  One form of data augmentation commonly used in audio is pitch shifting.  Unfortunately, classical watermarks are known to be quite vulnerable to pitch shifting attacks \cite{hu2014variable}.  Echo hiding is no exception; a shift in pitch up by a factor of $f$ will shift the echo down by a factor of $f$; therefore, we would expect degraded results in the presence of pitch shifting augmentation.  To quantify this, we design an experiment training Rave on the Guitarset data embedded with a single echo at 75 samples, for varying degrees of pitch augmentation, and we test on the MUSDB18-HQ dataset as before.  Pitch shifting is disabled by default in Rave, but when it is enabled, it randomly pitch shifts a clip 50\% of the time with simple spline interpolation at the sample level.  Hence, we modify the Rave code to use higher quality pitch shifting with the Rubberband Library \cite{cannam2024pyrubberband}, and we enable a variable probability for pitch shifting.  When pitch shifting happens for a clip, we pick a factor uniformly at random in the interval $[0.75, 1.25]$.  Figure~\ref{fig:pitchshiftaugmentation} shows the results for training Rave with an increasing probability of pitch shift augmentation under these conditions.  As expected, the results degrade with increasing amounts of pitch shifting, but, surprisingly, even at 100\% pitch shifting, the z-scores are still somewhat distinguishable from the clean model, as seen by the AUROC score using the clean model as the false positive distribution.  For the default value of 50\% pitch shifting, the z-scores are still quite far from the clean distribution.
 
 \subsection{Tagging Datasets}
 
-
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/Rave_Tagging_MaleFemale.pdf}
+    \caption{Tagging male vs female in VocalSet, training with Rave}
+    \label{fig:pitchshiftaugmentation}
+\end{figure}
 
 
 
