@@ -169,30 +169,24 @@
 %     \link{Extended version}{https://aaai.org/example/extended-version}
 % \end{links}
 
-\section{Preparing an Anonymous Submission}
-
 \section{Introduction}
 
 We use modified ideas from echo hiding \cite{gruhl1996echo}.
 
-There are myriad techniques for generative audio instrument training (todo: citations), but to show the general applicability of this technique in a replicable way, we pick three open models with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave} Dance Diffusion \cite{evans2022dancediffusion}, and differentiable digital signal processing (DDSP) \cite{engelddsp}.  Each model is trained on audio only, as opposed to those also involving language models (e.g. \cite{evans2024fast}) or MIDI (e.g. \cite{hawthornemulti}), and each model is trained on a collection of instrument sounds from the same instrument.  Specifically, we train models with different conditions on each of three open datasets to further enhance reproducibility: VocalSet \cite{wilkins2018vocalset}, Groove \cite{groove2019}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model using the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq} as inputs to models trained under various conditions.  This is a difficult audio watermarking scenario, as long moments of silence may be present in individual stems.
+There are myriad techniques for generative audio instrument training, but to show the general applicability of this technique in a replicable way, we pick three open architectures with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave}\footnote{ \url{https://github.com/acids-ircam/RAVE} } Dance Diffusion \cite{evans2022dancediffusion} \footnote{ \url{https://github.com/harmonai-org/sample-generator} }, and differentiable digital signal processing (DDSP) \cite{engelddsp}\footnote{We use our own vanilla implementation of DDSP at \url{ANONYMOUS}}.  Each model is trained on audio only, as opposed to those also involving language models (e.g. \cite{evans2024fast}) or MIDI (e.g. \cite{hawthornemulti}), and each model is trained on a collection of instrument sounds from the same instrument.  Specifically, we train models with different conditions on each of three open datasets to further enhance reproducibility: Groove \cite{groove2019}, VocalSet \cite{wilkins2018vocalset}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model using the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq} as inputs to models trained under various conditions.  This is a difficult audio watermarking scenario, as long moments of silence may be present in individual stems.
 
-
-
-
-\section{Background}
 
 
 
 \section{Methods}
 
-Every audio sample in the training sets is converted to a 44100hz mono 
+Below we briefly describe the three generative audio to audio models we use, as well as the scheme we use to watermark the training data. Every audio sample in the training sets is converted to a 44100hz mono, as are all of the inputs to the models.
 
 \subsection{Audio To Audio Models}
 
-Explain RAVE and dance diffusion architectures
+Explain DDSP, RAVE and dance diffusion architectures
 
-Specifics on architectures, with number of parameters
+DDSP has $\approx$5 million parameters, Rave has $\approx$32 million parameters, and dance diffusion $\approx$222 million parameters
 
 We use dance diffusion with a 81920 sample size, which means the receptive field spans about 1.86 seconds.  As the authors of \cite{hawthornemulti} note, using a network trained with a smaller context to synthesize audio clips may result in audible timbre shifts from one section to another; however, this is fine for a proof of concept.
 
@@ -209,13 +203,17 @@ We use dance diffusion with a 81920 sample size, which means the receptive field
 
 Given a discrete audio ``carrier waveform'' $x$, audio watermarking techniques hide a binary payload in a watermarked waveform $\hat{x}$ so that $x$ and $\hat{x}$ are perceptually indistinguishable.  The original echo hiding paper by \cite{gruhl1996echo} accomplishes this by creating two waveforms $x_0$ and $x_1$, each with a single echo; 
 \begin{equation}
+    \label{eq:echohidesingle}
     \begin{aligned}
         x_0[n] &= x[n] + \alpha x[n - \delta_0] \\
         x_1[n] &= x[n] + \alpha x[n - \delta_1]
     \end{aligned}
 \end{equation}
 
- where $\alpha$ trades off perceptibility and robustness of the watermark and is generally much less than 1, and $\delta_0 = \delta_1$ are both less than 100 samples at a 44.1khz sample rate.  These waveforms are then mixed together in windows to create $\hat{x}$ according to the payload; where $x_0$ is fully mixed at the center of a window if the payload contains a 0 at that moment and $x_1$ is fully mixed in if the payload contains a 0.  For a window length of 1024 samples, for instance, this amounts to about 43 bits per second at 44.1khz.  Since convolution in the time domain is multiplication in the frequency domain, the logarithm of the magnitude of the DFT of a window additively separates the frequency response of the echo from the frequency response of the original signal.  Therefore, the so-called ``cepstrum'' of a windowed signal $x_w$:
+ where $\alpha < 1$ trades off perceptibility and robustness of the watermark, and $\delta_0, \delta_1 \leq $ 100 samples at a 44.1khz sample rate.  These waveforms are then mixed together in windows to create $\hat{x}$ according to the payload; where $x_0$ is fully mixed at the center of a window if the payload contains a 0 at that moment and $x_1$ is fully mixed in if the payload contains a 0.  For a window length of 1024 samples, for instance, this amounts to about 43 bits per second at 44.1khz.  Because the echoes are at such a small shift, temporal aliasing of human hearing makes them less noticeable.
+ 
+ 
+Since convolution in the time domain is multiplication in the frequency domain, the logarithm of the magnitude of the DFT of a window additively separates the frequency response of the echo from the frequency response of the original signal.  Therefore, the so-called ``cepstrum'' of a windowed signal $x_w$:
  
 \begin{equation}
     \label{eq:cepstrum}
@@ -224,47 +222,62 @@ Given a discrete audio ``carrier waveform'' $x$, audio watermarking techniques h
  
 yields a signal in which a single echo is a high peak, which is referred to as the ``cepstrum'' $c$ \footnote{\cite{gruhl1996echo} note that it is more mathematically correct take the {\em complex logarithm} of the DFT before taking the inverse DFT, and they further enhance with an autocorrelation.  But we found better results with the traditional cepstrum.}.  Thus, to decode the payload from the watermarked signal, one computes $c$ on each window and infers a 0 if $c[\delta_0] > c[\delta_1]$ or a 1 otherwise.
 
-Since we seek to hide echoes in the training data for generative models, it is unlikely that the models we train will synthesize the windows in the same order they occur in the training set.  Therefore, we do away with the windowing completely and instead hide {\em the same echo} $\delta \in [50, 100]$ in {\em the entire audio clip} of {\em each waveform in the training data}.  We then examine the cepstrum $c$ of an entire clip that comes out of our models.  To score the cepstrum value at $\delta$ in a loudness-independent way, we compute the {\em z-score} at each lag $i$ as follows.  First, let $\mu_c[i]$ be the mean at $i$ excluding $i$:
+Since we seek to hide echoes in the training data for generative models, it is unlikely that the models we train will synthesize the windows in the same order they occur in the training set.  Therefore, we do away with the windowing completely and instead hide {\em the same echo} $\delta$ in {\em the entire audio clip} of {\em each waveform in the training data}.  We then examine the cepstrum $c$ of an entire clip that comes out of our models.  To score the cepstrum value at $\delta$ in a loudness-independent way, we compute the {\em z-score} at each lag $i$ as follows.  First, let $\mu_{c}^{a,b}[i]$ be the mean at $i$ excluding $i$:
 
 \begin{equation}
-    \mu_{c}[i] = \left( \sum_{j=25, 26, ..., i-1, i+1, 150} c[j] \right) / 125
+    \mu_{c}^{a,b}[i] = \left( \sum_{j=a, a+1, ..., b} c[j] \right) / (b-a+1)
 \end{equation}
 
-and let $\sigma_{c}[i]$ be 
+and let $\sigma_{c}^{a,b}[i]$ be 
 
 \begin{equation}
-    \sigma_{c}[i] = \sqrt{ \left( \sum_{j=25, 26, ..., i-1, i+1, 150} (c[j] - \mu_c[i])^2 \right) / 125}
+    \sigma_{c}^{a,b}[i] = \sqrt{ \left( \sum_{j=a, a+1, ..., b} (c[j] - \mu_c[i])^2 \right) / (b-a+1)}
 \end{equation}
 
 then
 
 \begin{equation}
-z[i]_{c} = \mu_{c}[i] / \sigma_{c}[i]
+    \label{eq:zscore}
+    z[i]_{c}^{a,b} = \mu_{c}^{a,b}[i] / \sigma_{c}^{a,b}[i]
 \end{equation}
 
 
-A model trained on data watermarked with echo $\delta$ works well if $z[\delta] > z[i \neq \delta]$.  Figure~\ref{fig:ravecepstra} shows example cepstra from clips created with different Rave\cite{caillon2021rave} models trained on the GuitarSet \cite{xi2018guitarset} dataset, with various echoes $\delta$.  The peaks and z-scores show that the models reproduce the echoes they were trained on.  We will evaluate this more extensively in the experiment section (Figure~\ref{fig:singleechotable}).
+A model trained on data watermarked with echo $\delta$ works well if $z^{a,b}_{\delta}[\delta] > z^{a,b}_{i}[i], i \neq \delta$.  In our experiments, we use $\alpha = 0.4$, $\delta \in \{50, 76, 76, 100\}$, $a=25$, and $b=125$.  Henceforth, we will assume those parameters and simply refer to the z-scores as $z$.  Figure~\ref{fig:ravecepstra} shows example cepstra from clips created with different Rave\cite{caillon2021rave} models trained on the GuitarSet \cite{xi2018guitarset} dataset, with various echoes $\delta$.  The peaks and z-scores show that the models reproduce the echoes they were trained on.  We will evaluate this more extensively in the experiment section (Figure~\ref{fig:singleechotable}).
 
-\subsection{Pseudorandom Echo Patterns}
+\subsection{Time Spread Echo Patterns}
 
-Though we have found single echoes to be robust, the information capacity is low.  Since we hide echoes between 50 and 100 at integer values, we can store at most ~5.6 bits of information in a single dataset.  To increase the information capacity, we also explore followup work on 
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/RavePNCepstra.pdf}
+    \caption{Comparing a 30 second style transfer using a Rave model with a pseudorandom echo pattern $p$ embedded in the training data to one without any pattern.  The cross-correlation of the cepstrum with $p$ peaks for the model with the embedded pattern. }
+    \label{fig:ravepncepstra}
+\end{figure}
+
+Though we have found single echoes to be robust, the information capacity is low.  Supposing we use echoes between 50 and 100 at integer values, we can store at most ~5.7 bits of information in a single dataset.  To increase the information capacity, we also explore followup work on ``time-spread echo hiding'' \cite{ko2005time} that hides an entire pseudorandom binary sequence $p$ with $L$ bits by scaling, time shifting, and convolving it with the carrier signal $x$:
+
+\begin{equation}
+\hat{x} = x * \alpha p_{\delta}, \text{ where } p_{\delta}[n] = 2 p[n - \delta] - 1
+\end{equation}
+
+where, to maintain perceptual transparency, $\alpha$ is generally significantly smaller than it is for a single echo; we use $\alpha = 0.01$.  To uncover the hidden pattern, one computes the cepstrum $c$ according to Equation~\ref{eq:cepstrum}, and then does a cross-correlation of $c$ with $(2p - 1)$ to obtain a signal $c^*$.  If the echo pattern is well preserved, then $c^*[\delta] > c^*[i \neq \delta]$.
+
+As in the original echo hiding paper, this work hides $p$ at different offsets $\delta$ in two different signals for hiding a 1 or a 0, but, once again, we hide the same pseudorandom echo at the same lag $\delta=75$ for the entire clip in the training data of our models.  We then compute the $z$-score $z_{c^*}^{a,b}$ on $c^*$ on the model outputs using an equation analogous to Equation~\ref{eq:zscore}, though we set $a = 3, b=L+\delta$, and we also exclude the samples of $c^*$ 3 to the left and 3 to the right when computing $\mu_{c^*}^{a,b}$ and $\sigma_{c^*}^{a,b}$.  Overall, we create 8 different versions of each training set we have, each embedded with a different pseudorandom echo pattern of length $L=1024$.  Furthermore, we ensure that the 28 pairwise Hamming distances between the 8 pseudorandom patterns are approximately uniformly distributed between 0 and 1024.  Figure~\ref{fig:ravepncepstra} shows an example of a style transfer on a model trained on data with the first pseudorandom pattern embedded in all of the training data.
 
 
-
-
+Note that followup work by \cite{xiang2010effective} suggests ensuring that the pseudorandom echo patterns don't have more than two 0's or two 1's in a row, which skews the perturbations in $\hat{x}$ to less perceptible higher frequencies.  In this case, one can also compute an enhanced cross-correlation signal as $c^*[n] - 0.5c^*[n-1] - 0.5c^*[n+1]$.  Though we ensured that our pseudorandom echo patterns satisfied this property, we did not find an improvement in our experiments, so we stick to the original cross-correlation z-score.
 
 \section{Experiments}
+
+To rigorously evaluate the efficacy of our echo watermarks, we train each of our three different model architectures on 3 different datasets:  the training set for Groove \cite{groove2019} ($\approx$8 hours), the entire VocalSet dataset \cite{wilkins2018vocalset} ($\approx$6 hours), and the entire GuitarSet dataset \cite{xi2018guitarset} ($\approx$3 hours).  For each model+architecture combination, we train a variety of models with different embedded echo patterns in the training set.  Once each model is trained, we send through as input multiple random segments of lengths 5, 10, 30, and 60 seconds, drawn from each of the 100 corresponding stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.  In particular, models trained on VocalSet get the ``vocals'' stems, models trained on Groove get the ``drums'' stems, and models trained on Guitarset get ``other'' stems (which are mostly acoustic and electric guitar).  Finally, we report z-scores for various echoes/pseudorandom patterns on the outputs of the models.
 
 \subsection{Single Echo Experiments}
 \label{sec:experimentssingleecho}
 
 
-
-
 \begin{figure}
     \centering
     \includegraphics[width=\columnwidth]{figs/RaveZScoreExamples.pdf}
-    \caption{As this example with various tagged vocalset training data shows, the z-scores for a 75 echo are much higher for the models that are trained on a dataset with a 75 echo embedded in every clip, and the separation increases with increasing clip duration.}
+    \caption{As this example with various tagged VocalSet training data shows, the z-scores for a 75 echo are much higher for the models that are trained on a dataset with a 75 echo embedded in every clip, and the separation increases with increasing clip duration.}
     \label{fig:ravezscoreexamples}
 \end{figure}
 
@@ -272,7 +285,7 @@ Though we have found single echoes to be robust, the information capacity is low
 \begin{figure}
     \centering
     \includegraphics[width=\columnwidth]{figs/DDSPZScoreExamples.pdf}
-    \caption{DDSP models show the strongest preservation of echoes, as measured by the z-score}
+    \caption{DDSP models show the strongest preservation of echoes over all model types, as measured by the z-score.}
     \label{fig:ddspzscoreexamples}
 \end{figure}
 
@@ -283,36 +296,29 @@ Though we have found single echoes to be robust, the information capacity is low
     \label{fig:dancediffusionzscoreexamples}
 \end{figure}
 
-
 \begin{figure*}
     \centering
-    \onecolumn
     \includegraphics[width=\textwidth]{figs/AllSingleEchoZScores.pdf}
     
-    \caption{Single echo results}
+    \caption{The means and standard deviations of z-scores for datasets embedded with various echoes (along each inner row) evaluated for different echoes (along each inner column) show that all architectures (outer rows) only strongly reproduce the echoes that they were trained on across all datasets (outer columns).}
     \label{fig:singleechotable}
-    \twocolumn
 \end{figure*}
 
-
-Explain musdb experiment
-
-Table for 50, 75, 76, 100 for all instruments, plus percentage tagged for all models
+For these experiments, we train each architecture on each of the original VocalSet, GuitarSet, and Groove datasets, as well as on each of these datasets with an embedded echo of 50, 75, 76, and 100.  Figures~\ref{fig:ravezscoreexamples},~\ref{fig:ddspzscoreexamples}, and~\ref{fig:dancediffusionzscoreexamples} show distributions of z-scores for models trained with an echo of 75 and tested with the corresponding stems.  Figure~\ref{fig:singleechotable} shows the mean and standard deviation of z-scores over all architectures over all instruments over all echoes.  The echoes are quite robust over all architectures.  The only weakness is a mixup of the adjacent echoes 75 and 76 for the dance diffusion models.
 
 
-
-
+TODO: Show percentage tagged
 
 
 
 
 \subsection{Pseudorandom Echo Sequences}
 
-Time spread echo hiding \cite{ko2005time}.  We use kernels that are designed to be more robust \cite{xiang2010effective}, but we find they don't work as well
+
 
 \section{Additional Use Cases}
 
-We now explore thin slices through a few additional uses cases to highlight the versatility of the hidden echoes
+We now report preliminary results on few additional uses cases to highlight the promise of the hidden echoes for tagging generative audio models.
 
 
 
@@ -336,8 +342,8 @@ Show results only on groove and vocalset since guitarset is too small
 
 
 
-\section{Conclusion}
-The conclusion goes here.
+\section{Discussion}
+Talk about future work fine tuning audio language models like stable audio
 
 
 \bibliography{writeup}
