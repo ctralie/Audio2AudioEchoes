@@ -19,6 +19,41 @@ pns = list(range(8)) + ["clean"]
 durs = [5, 10, 30, 60]
 seeds = [0] # Do different runs with different chunks
 
+def get_z_scores(param):
+    (opt, dur, pn, y, i1) = param
+    sr = opt.sr
+    from echohiding import get_cepstrum, get_z_score, correlate_pn
+    from prepare_echo_dataset_pn import PN_PATTERNS_1024_8
+    L = PN_PATTERNS_1024_8[pn].size
+    cep = get_cepstrum(y[i1:i1+sr*dur])
+
+    ## Do random bit flips and score
+    results = {}
+    if pn != "clean":
+        q = PN_PATTERNS_1024_8[pn]
+        for bit_flip in range(0, L, opt.bit_flip_jump):
+            q2 = np.array(q)
+            idx_flip = np.random.permutation(L)[0:bit_flip]
+            q2[idx_flip] = (q2[idx_flip] + 1)%2
+
+            c = correlate_pn(cep, q2, L+2*opt.lag)
+            z = get_z_score(c, opt.lag, buff=3, start_buff=3)
+            results[f"reg_{bit_flip}"] = z
+            
+            c2 = np.correlate(c, [-0.5, 1, -0.5])
+            z2 = get_z_score(c2[0:L+2*opt.lag], opt.lag-1, buff=3, start_buff=3)
+            results[f"enhanced_{bit_flip}"] = z2
+
+    ## Check all pseudorandom patterns and score
+    for qidx, q in enumerate(PN_PATTERNS_1024_8):
+        c = correlate_pn(cep, q, L+2*opt.lag)
+        z = get_z_score(c, opt.lag, buff=3, start_buff=3)
+        results[f"reg_pn{qidx}"] = z
+        
+        c2 = np.correlate(c, [-0.5, 1, -0.5])
+        z2 = get_z_score(c2[0:L+2*opt.lag], opt.lag-1, buff=3, start_buff=3)
+        results[f"enhanced_pn{qidx}"] = z2
+    return results
 
 def eval_pn_echo_models_bit_flips(param):
     """
@@ -35,16 +70,14 @@ def eval_pn_echo_models_bit_flips(param):
 
 
     sys.path.append(opt.base_dir)
-    from prepare_echo_dataset_pn import PN_PATTERNS_1024_8
     sys.path.append(f"{opt.base_dir}/src")
-    from echohiding import get_cepstrum, get_z_score, correlate_pn
 
     np.random.seed(seed)
     torch.set_grad_enabled(False)
     files = glob.glob(dataset_pattern)
     sr = opt.sr
 
-    L = PN_PATTERNS_1024_8[0].size
+    
     results = {}
     if os.path.exists(out_path):
         results = json.load(open(out_path))
@@ -71,42 +104,19 @@ def eval_pn_echo_models_bit_flips(param):
         else:
             idx_offset = np.random.randint(x.size-sr*60+1)
             xi = x[idx_offset:idx_offset+sr*60]
-            xi = torch.from_numpy(xi).to(opt.device)
             with torch.no_grad():
-                y = model.style_transfer(x, "cpu", "cuda").flatten()
+                y = model.style_transfer(xi, opt.device, "cuda").flatten()
             for dur in durs:
                 chunks_this_time = 1
                 if dur < 60:
                     chunks_this_time = min(opt.n_chunks, 2*y.size//(dur*sr))
-                for _ in tqdm(range(chunks_this_time)):
-                    i1 = np.random.randint(y.size-dur*sr) # Choose a random offset
-                    cep = get_cepstrum(y[i1:i1+sr*dur])
 
-                    ## Do random bit flips and score
-                    if pn != "clean":
-                        q = PN_PATTERNS_1024_8[pn]
-                        for bit_flip in range(0, L, opt.bit_flip_jump):
-                            q2 = np.array(q)
-                            idx_flip = np.random.permutation(L)[0:bit_flip]
-                            q2[idx_flip] = (q2[idx_flip] + 1)%2
-
-                            c = correlate_pn(cep, q2, L+2*opt.lag)
-                            z = get_z_score(c, opt.lag, buff=3, start_buff=3)
-                            results[tune][dur][f"reg_{bit_flip}"].append(z)
-                            
-                            c2 = np.correlate(c, [-0.5, 1, -0.5])
-                            z2 = get_z_score(c2[0:L+2*opt.lag], opt.lag-1, buff=3, start_buff=3)
-                            results[tune][dur][f"enhanced_{bit_flip}"].append(z2)
-
-                    ## Check all pseudorandom patterns and score
-                    for qidx, q in enumerate(PN_PATTERNS_1024_8):
-                        c = correlate_pn(cep, q, L+2*opt.lag)
-                        z = get_z_score(c, opt.lag, buff=3, start_buff=3)
-                        results[tune][dur][f"reg_pn{qidx}"].append(z)
-                        
-                        c2 = np.correlate(c, [-0.5, 1, -0.5])
-                        z2 = get_z_score(c2[0:L+2*opt.lag], opt.lag-1, buff=3, start_buff=3)
-                        results[tune][dur][f"enhanced_pn{qidx}"].append(z2)
+                with Pool(opt.n_threads) as p:
+                    # (opt, dur, pn, y)
+                    all_results = p.map(get_z_scores, zip([opt]*dur*chunks_this_time, [dur]*chunks_this_time, [pn]*chunks_this_time, [y]*chunks_this_time, np.random.randint(0, y.size-dur*sr, chunks_this_time)))
+                    for r in all_results:
+                        for key in r:
+                            results[tune][dur][key].append(r[key])
 
         json.dump(results, open(out_path, "w"))
 
@@ -134,5 +144,3 @@ if __name__ == '__main__':
 
     for idx in range(opt.min, opt.max+1):
         eval_pn_echo_models_bit_flips((idx, opt))
-    #with Pool(opt.n_threads) as p:
-    #    p.map(eval_pn_echo_models_bit_flips, zip(range(opt.min, opt.max), [opt]*opt.max))
