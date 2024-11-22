@@ -24,7 +24,7 @@ def get_z_scores(param):
     sr = opt.sr
     from echohiding import get_cepstrum, get_z_score, correlate_pn
     from prepare_echo_dataset_pn import PN_PATTERNS_1024_8
-    L = PN_PATTERNS_1024_8[pn].size
+    L = PN_PATTERNS_1024_8[0].size
     cep = get_cepstrum(y[i1:i1+sr*dur])
 
     ## Do random bit flips and score
