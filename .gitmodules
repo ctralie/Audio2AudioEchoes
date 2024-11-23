@@ -4,9 +4,6 @@
 [submodule "RAVE"]
 	path = RAVE
 	url = https://github.com/ctralie/RAVE.git
-[submodule "golf"]
-	path = golf
-	url = https://github.com/ctralie/golf.git
 [submodule "ddsp"]
 	path = ddsp
 	url = https://github.com/ctralie/ddsp.git
