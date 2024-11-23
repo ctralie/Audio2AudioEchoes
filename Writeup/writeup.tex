@@ -158,7 +158,7 @@
 \maketitle
 
 \begin{abstract}
-As generative techniques pervade the audio domain, there has been increasing interest in tracing back through these complicated models to understand how they draw on their training data to synthesize new examples, both to ensure that they use properly licensed data and also to elucidate their black box behavior. In this paper, we show that if imperceptible echoes are hidden in the training data, a wide variety of audio to audio architectures (differentiable digital signal processing (DDSP), Realtime Audio Variational autoEncoder (RAVE), and ``Dance Diffusion'') will reproduce these echoes in their outputs. Hiding a single echo is particularly robust across all architectures, but we also show promising results hiding longer time spread echo patterns for an increased information capacity. We also show that echoes make their way into fine tuned models, and they also survive demixing. Hence, this simple, classical idea in watermarking shows significant promise for tagging generative audio models. 
+As generative techniques pervade the audio domain, there has been increasing interest in tracing back through these complicated models to understand how they draw on their training data to synthesize new examples, both to ensure that they use properly licensed data and also to elucidate their black box behavior. In this paper, we show that if imperceptible echoes are hidden in the training data, a wide variety of audio to audio architectures (differentiable digital signal processing (DDSP), Realtime Audio Variational autoEncoder (RAVE), and ``Dance Diffusion'') will reproduce these echoes in their outputs. Hiding a single echo is particularly robust across all architectures, but we also show promising results hiding longer time spread echo patterns for an increased information capacity. We conclude by showing that echoes make their way into fine tuned models, that they survive mixing, and that they survive pitch shift augmentation during training. Hence, this simple, classical idea in watermarking shows significant promise for tagging generative audio models. 
 
 \end{abstract}
 
@@ -172,25 +172,26 @@ As generative techniques pervade the audio domain, there has been increasing int
 
 \section{Introduction}
 
-There is increasing interest in understanding how generative audio neural network models use their training data, both to detect training on unlicensed data and to understand the inner workings of models.  One post-hoc approach is to correlate synthesized outputs from the models with specific sounds that could be in the training data \cite{batlle2024towards, barnett2024exploring}.  Other approaches sit in the middle of the training pipeline by modifying the generator directly to watermark its outputs, such as \cite{cao2023invisible} who were inspired by \cite{wen2023tree} in the image domain.  In our work, on the other hand, we assume the least knowledge/control over the models that are used and instead restrict our focus to techniques that sit the earliest in the pipeline: {\em those that modify the training data only}. One such line of work seeks to watermark training data in such a way that when models are fine tuned, they will fail to reproduce the training data.  These so-called ``poisoning'' techniques are popular in the image processing domain (e.g. ``Glaze'' \cite{shan2023glaze} and ``Nightshade'' \cite{shan2023prompt}), and similar works have begun to appear in singing voice cloning \cite{chen2024proactive} and music generation \cite{barnett2024defenses}.  In our work, though, we do not seek to influence the behavior of the model so drastically, but rather to ``tag'' the data in such a way that the model reproduces the tag, similarly to how \cite{ditria2023hey} watermark their training data in a diffusion image model.  We are also inspired by the recent lawsuit by Getty Images against Stable Diffusion when it was discovered that the latter would often reproduce the former's watermarks in its output \cite{vincent2023getty}.  We would like to do something similar with audio, but to keep it imperceptible.
+We seek to understand how generative audio neural network models use their training data, both to detect training on unlicensed data and to understand the inner workings of models.  One post-hoc approach is to correlate synthesized outputs from the models with specific sounds that could be in the training data \cite{batlle2024towards, barnett2024exploring}.  Other approaches modify the generator directly to watermark its outputs, such as \cite{cao2023invisible} who were inspired by \cite{wen2023tree} in the image domain.  In our work, on the other hand, we assume the least knowledge/control over the models that are used and instead restrict our focus to techniques that sit the earliest in the pipeline: {\em those that modify the training data only}. One such line of work seeks to watermark training data in such a way that when models are fine tuned, they will fail to reproduce the training data.  These so-called ``poisoning'' techniques are popular in the image processing domain (e.g. ``Glaze'' \cite{shan2023glaze} and ``Nightshade'' \cite{shan2023prompt}), and similar works have begun to appear in singing voice cloning \cite{chen2024proactive} and music generation \cite{barnett2024defenses}.  In our work, though, we do not seek to influence the behavior of the model so drastically, but rather to ``tag'' the data in such a way that the model reproduces the tag, similarly to how \cite{ditria2023hey} watermark their training data for a diffusion image model.  We are also inspired by the recent lawsuit by Getty Images against Stable Diffusion when it was discovered that the latter would often reproduce the former's watermarks in its output \cite{vincent2023getty}.  We would like to do something similar with audio, but to keep it imperceptible.
 
 
-All of the above approaches use neural networks to create watermarks for generative models, but we are unaware of any works that use any simpler classical, hand-crafted audio watermarks for this purpose.  If such watermarks could survive training, this could make it simpler for practitioners to implement, and it may also more easily shed light on the inner workings of the generative models.  While many options are available, such as spread spectrum \cite{kirovski2001robust}, phase-based \cite{xiaoxiao_dong_data_2004, malik_robust_2007}, and OFDM \cite{eichelberger_receiving_2019}, we surprisingly find success with some of the oldest and simplest techniques based on echo hiding \cite{gruhl1996echo} and followup work on time-spread echo hiding \cite{ko2005time}.  In particular, we find that if we embed a single echo or a fixed pseudorandom time-spread echo pattern across each clip in the training data, the pattern will be recreated by a variety of architectures when synthesizing new sounds.  To show the general applicability of this technique in a reproducible way, we test it using three open architectures with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave}\footnote{ \url{https://github.com/acids-ircam/RAVE} } Dance Diffusion \cite{evans2022dancediffusion} \footnote{ \url{https://github.com/harmonai-org/sample-generator} }, and differentiable digital signal processing (DDSP) \cite{engelddsp}\footnote{We use our own vanilla implementation of DDSP at \url{ANONYMOUS}}.  Each model is trained on audio only, as opposed to those also involving language models (e.g. \cite{evans2024fast}) or MIDI (e.g. \cite{hawthornemulti}), and each model is trained on a collection of instrument sounds from the same instrument.  Specifically, we train models with different conditions on each of three open datasets to further enhance reproducibility: Groove \cite{groove2019}, VocalSet \cite{wilkins2018vocalset}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model using the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq} as inputs to models trained under various conditions.  This is a difficult audio watermarking scenario, as long moments of silence may be present in individual stems.
+All of the above approaches use neural networks to create watermarks for generative models, but we are unaware of any works that use any simpler classical, hand-crafted audio watermarks for this purpose.  If such watermarks could survive training, this could make it simpler for practitioners to implement, and it may also more easily shed light on the inner workings of the generative models.  While many options are available, such as spread spectrum \cite{kirovski2001robust}, phase-based \cite{xiaoxiao_dong_data_2004, malik_robust_2007}, and OFDM \cite{eichelberger_receiving_2019}, we surprisingly find success with some of the oldest and simplest techniques based on echo hiding \cite{gruhl1996echo} and followup work on time-spread echo hiding \cite{ko2005time}.  If we embed a single echo or a fixed pseudorandom time-spread echo pattern across each clip in the training data, the pattern will be recreated by a variety of architectures when synthesizing new sounds.  To show this in a general, reproducible way, we test it using three open architectures with fundamentally different approaches whose code is readily available online: RAVE \cite{caillon2021rave}\footnote{ \url{https://github.com/acids-ircam/RAVE} } Dance Diffusion \cite{evans2022dancediffusion} \footnote{ \url{https://github.com/harmonai-org/sample-generator} }, and differentiable digital signal processing (DDSP) \cite{engelddsp}\footnote{We use our own vanilla implementation of DDSP at \url{ANONYMOUS}}.  Each model is trained on audio only, as opposed to those also involving language models (e.g. \cite{evans2024fast}) or MIDI (e.g. \cite{hawthornemulti}), and each model is trained on a collection of instrument sounds from the same instrument.  Specifically, we train models with different conditions on each of three open datasets to further enhance reproducibility: Groove \cite{groove2019}, VocalSet \cite{wilkins2018vocalset}, and GuitarSet \cite{xi2018guitarset}, which span vocals, and drums, and acoustic guitar, respectively.  We evaluate each model using the respective vocals, drums, and ``other'' stems in the MUSDB18-HQ dataset \cite{musdb18-hq} as inputs to models trained under various conditions.  %This is a difficult audio watermarking scenario, as long moments of silence may be present in individual stems.
 
 
 
 
 \section{Methods}
 
-Below we briefly describe the three generative audio to audio models we use, as well as the scheme we use to watermark the training data. Every audio sample in the training sets is converted to a 44100hz mono, as are all of the inputs to the models.
+Below we describe the generative audio to audio models we use, as well as the scheme we use to watermark the training data. Every audio sample in the training sets is converted to a 44100hz mono, as are all of the inputs to the models.
 
 \subsection{Audio To Audio Models}
 
-Explain DDSP, RAVE and Dance Diffusion architectures
+We restrict the focus of our work to audio to audio models, in which a neural network is trained on a corpus and it synthesizes outputs in the style of the corpus.  For instance, one could train such a model on a corpus of violins and feed it singing voice audio to create a ``singing violin.''  The first such technique we use, Differentiable Digital Signal Processing (DDSP) \cite{engelddsp} has the simplest architecture out of all of the models.  We use the version from the original paper in which the encoder is fixed as a 2 dimensional representation of pitch and loudness, respectively.  These dimension are then fed to a decoder network which learns an additive and subtractive synthesizer to best match the training data for a particular pitch/loudness trajectory.  The only thing we change is that we use the more recent PESTO \cite{riou2023pesto} instead of CREPE \cite{kim2018crepe} for efficiency, and we use a 3D latent space of loudness, pitch, and {\em pitch confidence}.  In the end, our DDSP models have $\approx$5 million parameters.
 
-DDSP has $\approx$5 million parameters, RAVE has $\approx$32 million parameters, and Dance Diffusion $\approx$222 million parameters
 
-We use Dance Diffusion with a 81920 sample size, which means the receptive field spans about 1.86 seconds.  As the authors of \cite{hawthornemulti} note, using a network trained with a smaller context to synthesize audio clips may result in audible timbre shifts from one section to another; however, this is fine for a proof of concept.
+The second most complex model we use is ``RAVE'' \cite{caillon2021rave}, which is a two-stage model that first learns a general audio autoencoder and then improves this autoencoder with generative adversarial training.  We use Rave V2, which has $\approx$32 million parameters, and we use snake activations and train with compression augmentation. 
+
+The most complex model we use is ``Dance Diffusion,'' which uses a vanilla diffusion network \cite{sohl2015deep} with attention to progressively denoise outputs from a completely random input.  To condition a style transfer to sound more like a particular input $x$, one can jump-start the diffusion process with a scaled $x$ and some added AWGN noise with standard deviation $\eta \in [0, 1]$.  The closer $\eta$ is to 1, the more the output will take on the character of the corpus on which Dance Diffusion was trained.  We use $\eta=0.2$ in all of our experiments, and we use a 81920 sample size, which means the receptive field spans $\approx$1.86 seconds, and the denoising network has $\approx$222 million parameters.%\footnote{As the authors of \cite{hawthornemulti} note, using a network trained with a smaller context to synthesize audio clips may result in audible timbre shifts from one section to another; however, this is fine for a proof of concept.}
 
 
 \subsection{Echo Hiding}
@@ -212,10 +213,7 @@ Given a discrete audio ``carrier waveform'' $x$, audio watermarking techniques h
     \end{aligned}
 \end{equation}
 
- where $\alpha < 1$ trades off perceptibility and robustness of the watermark, and $\delta_0, \delta_1 \leq $ 100 samples at a 44.1khz sample rate.  These waveforms are then mixed together in windows to create $\hat{x}$ according to the payload; where $x_0$ is fully mixed at the center of a window if the payload contains a 0 at that moment and $x_1$ is fully mixed in if the payload contains a 0.  For a window length of 1024 samples, for instance, this amounts to about 43 bits per second at 44.1khz.  Because the echoes are at such a small shift, temporal aliasing of human hearing makes them less noticeable.
- 
- 
-Since convolution in the time domain is multiplication in the frequency domain, the logarithm of the magnitude of the DFT of a window additively separates the frequency response of the echo from the frequency response of the original signal.  Therefore, the so-called ``cepstrum'' of a windowed signal $x_w$:
+ where $\alpha < 1$ trades off perceptibility and robustness of the watermark, and $\delta_0, \delta_1 \leq $ 100 samples at a 44.1khz sample rate.  These waveforms are then mixed together in windows to create $\hat{x}$ according to the payload; where $x_0$ is fully mixed at the center of a window if the payload contains a 0 at that moment and $x_1$ is fully mixed in if the payload contains a 0.  For a window of 1024 samples, for instance, this amounts to $\approx$43 bits per second at 44.1khz.  Because the echoes are at such a small shift, temporal aliasing of human hearing makes them less noticeable.  Furthermore, since convolution in the time domain is multiplication in the frequency domain, the logarithm of the magnitude of the DFT of a window additively separates the frequency response of the echo from the frequency response of $x$.  Therefore, the so-called ``cepstrum'' of a windowed signal $x_w$:
  
 \begin{equation}
     \label{eq:cepstrum}
@@ -233,7 +231,7 @@ Since we seek to hide echoes in the training data for generative models, it is u
 and let $\sigma_{c}^{a,b}[i]$ be 
 
 \begin{equation}
-    \sigma_{c}^{a,b}[i] = \sqrt{ \left( \sum_{\substack{j=a \\ j \neq i}}^{b} (c[j] - \mu_c[i])^2 \right) / (b-a)}
+    \sigma_{c}^{a,b}[i] = \sqrt{ \left( \sum_{\substack{j=a \\ j \neq i}}^{b} (c[j] - \mu_c^{a,b}[i])^2 \right) / (b-a)}
 \end{equation}
 
 then
@@ -255,6 +253,13 @@ A model trained on data watermarked with echo $\delta$ works well if $z^{a,b}_{\
     \label{fig:ravepncepstra}
 \end{figure}
 
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/RaveZScoreExamples.pdf}
+    \caption{As this example with various tagged VocalSet training data shows, the z-scores for a 75 echo are much higher for the models that are trained on a dataset with a 75 echo embedded in every clip, and the separation increases with increasing clip duration.}
+    \label{fig:ravezscoreexamples}
+\end{figure}
+
 Though we have found single echoes to be robust, the information capacity is low.  Supposing we use echoes between 50 and 100 at integer values, we can store at most ~5.7 bits of information in a single dataset.  To increase the information capacity, we also explore followup work on ``time-spread echo hiding'' \cite{ko2005time} that hides an entire pseudorandom binary sequence $p$ with $L$ bits by scaling, time shifting, and convolving it with the carrier signal $x$:
 
 \begin{equation}
@@ -270,21 +275,13 @@ Note that followup work by \cite{xiang2010effective} suggests ensuring that the 
 
 \section{Experiments}
 
-To rigorously evaluate the efficacy of our echo watermarks, we train each of our three different model architectures on 3 different datasets:  the training set for Groove \cite{groove2019} ($\approx$8 hours), the entire VocalSet dataset \cite{wilkins2018vocalset} ($\approx$6 hours), and the entire GuitarSet dataset \cite{xi2018guitarset} ($\approx$3 hours).  For each model+architecture combination, we train a variety of models with different embedded echo patterns in the training set.  Once each model is trained, we send through as input multiple random segments of lengths 5, 10, 30, and 60 seconds, drawn from each of the 100 corresponding stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.  In particular, models trained on VocalSet get the ``vocals'' stems, models trained on Groove get the ``drums'' stems, and models trained on Guitarset get ``other'' stems (which are mostly acoustic and electric guitar).  Finally, we report z-scores for various single echo and time spread echo patterns on the outputs of the models.
-
-We train RAVE for 1.3 million steps for Groove and 2 million steps for GuitarSet and VocalSet.  We train Dance Diffusion for 50,000 steps on all models, and we train DDSP for 500,000 samples on all models.  More details can be found in our repository at ANONYMOUS.
-
-\subsection{Single Echo Experiments}
-\label{sec:experimentssingleecho}
-
-
-\begin{figure}
+\begin{figure*}
     \centering
-    \includegraphics[width=\columnwidth]{figs/RaveZScoreExamples.pdf}
-    \caption{As this example with various tagged VocalSet training data shows, the z-scores for a 75 echo are much higher for the models that are trained on a dataset with a 75 echo embedded in every clip, and the separation increases with increasing clip duration.}
-    \label{fig:ravezscoreexamples}
-\end{figure}
-
+    \includegraphics[width=\textwidth]{figs/AllSingleEchoZScores.pdf}
+    
+    \caption{The means and standard deviations of z-scores for datasets embedded with various single echoes (along each inner row) evaluated for different echoes (along each inner column) show that all architectures (outer rows) only strongly reproduce the echoes that they were trained on across all datasets (outer columns).}
+    \label{fig:singleechotable}
+\end{figure*}
 
 \begin{figure}
     \centering
@@ -293,6 +290,17 @@ We train RAVE for 1.3 million steps for Groove and 2 million steps for GuitarSet
     \label{fig:ddspzscoreexamples}
 \end{figure}
 
+
+
+
+
+To rigorously evaluate the efficacy of our echo watermarks, we train each of our three different model architectures on 3 different datasets:  the training set for Groove \cite{groove2019} ($\approx$8 hours), the entire VocalSet dataset \cite{wilkins2018vocalset} ($\approx$6 hours), and the entire GuitarSet dataset \cite{xi2018guitarset} ($\approx$3 hours).  For each model+architecture combination, we train a variety of models with different embedded echo patterns in the training set.  Once each model is trained, we send through as input multiple random segments of lengths 5, 10, 30, and 60 seconds, drawn from each of the 100 corresponding stems in the MUSDB18-HQ dataset \cite{musdb18-hq}.  In particular, models trained on VocalSet get the ``vocals'' stems, models trained on Groove get the ``drums'' stems, and models trained on Guitarset get ``other'' stems (which are mostly acoustic and electric guitar).  Finally, we report z-scores for various single echo and time spread echo patterns on the outputs of the models.
+
+We train RAVE for 1.3 million steps for Groove and 2 million steps for GuitarSet and VocalSet.  We train Dance Diffusion for 50,000 steps on all models, and we train DDSP for 500,000 samples on all models.  More details can be found in our repository at ANONYMOUS.  
+
+\subsection{Single Echo Experiments}
+\label{sec:experimentssingleecho}
+
 \begin{figure}
     \centering
     \includegraphics[width=\columnwidth]{figs/DanceDiffusionZScoreExamples.pdf}
@@ -300,18 +308,15 @@ We train RAVE for 1.3 million steps for Groove and 2 million steps for GuitarSet
     \label{fig:dancediffusionzscoreexamples}
 \end{figure}
 
-\begin{figure*}
-    \centering
-    \includegraphics[width=\textwidth]{figs/AllSingleEchoZScores.pdf}
-    
-    \caption{The means and standard deviations of z-scores for datasets embedded with various echoes (along each inner row) evaluated for different echoes (along each inner column) show that all architectures (outer rows) only strongly reproduce the echoes that they were trained on across all datasets (outer columns).}
-    \label{fig:singleechotable}
-\end{figure*}
+
+
+
+
 
 For these experiments, we train each architecture on each of the original VocalSet, GuitarSet, and Groove datasets, as well as on each of these datasets with an embedded echo of 50, 75, 76, and 100.  Figures~\ref{fig:ravezscoreexamples},~\ref{fig:ddspzscoreexamples}, and~\ref{fig:dancediffusionzscoreexamples} show distributions of z-scores for models trained with an echo of 75 and tested with the corresponding stems.  Figure~\ref{fig:singleechotable} shows the mean and standard deviation of z-scores for the MUSDB18-HQ clips over all architectures over all instruments over all echoes.  The echoes are quite robust over all architectures.  The only weakness is a mixup of the adjacent echoes 75 and 76 for the Dance Diffusion models.
 
 
-TODO: Show percentage tagged
+%TODO: Show percentage tagged
 
 
 
@@ -321,30 +326,40 @@ TODO: Show percentage tagged
 \begin{figure}
     \centering
     \includegraphics[width=\columnwidth]{figs/DrumsPNModel_pn0.pdf}
-    \caption{The further away the perturbed correlated pattern $p'$ gets from the truly embedded pattern $p$, the smaller the z-scores get, increasing the AUROC of z-scores from $p$ and $p'$.  Increasing the length of the synthesized clip (depicted as color) also leads to stronger detection capability.  Finally, the z-scores of $p$ in the embedded model are easily distinguishable from the z-scores of $p$ in the clean model (x's in left plot, dotted lines in right plot).}
+    \caption{An example of our evaluation for a Rave model embedded with a time-spread echo pattern.  The further away the perturbed correlated pattern $p'$ gets from the truly embedded pattern $p$, the smaller the z-scores get, increasing the AUROC of z-scores from $p$ and $p'$.  Increasing the length of the synthesized clip (depicted as color) also leads to stronger detection capability.  Finally, the z-scores of $p$ in the embedded model are easily distinguishable from the z-scores of $p$ in the clean model (x's in left plot, dotted lines in right plot).}
     \label{fig:drumspn7}
 \end{figure}
 
-For these experiments, we train RAVE and DDSP on 8 time spread echo patterns embedded in each dataset.  We omit fully training dance diffusion with these patterns due to computational constraints, and due to the fact that fine tuning with these patterns shows poor results.
 
-To evaluate the results, we once again examine the outputs of multiple random clips from the 100 examples in the MUSDB18-HQ training set.  To get a clearer picture of the extent to which each model captures the time spread pattern, we compute z-scores on the $c^*$ correlating with the original pattern $p$ on the output cepstra, and we also compute z-scores after correlating with a perturbed version $p'$ of $p$ with an increasing number of bits randomly flipped.  To quantify how the z-scores change, we compute an ROC curve, where the true positives are z-scores correlating to $p$, and the false positives are correlating to the perturbed versions $p'$.  
-
-Figure~\ref{fig:drumspn7} shows an example of this evaluation on the first time spread echo pattern embedded in the Groove dataset.  The right plot shows the corresponding ROC curves for 512 bits flipped at different durations, as well as ROC curves where the false positives are z-scores in a clean model correlating $p$.
+Next, we train RAVE and DDSP on 8 time spread echo patterns embedded in each dataset.  We omit fully training dance diffusion with these patterns due to computational constraints and poorer results.  Once again, we compute z-scores on the outputs of multiple random clips from the 100 examples in the MUSDB18-HQ training set.  To quantify the extent to which each model captures the time spread pattern, we compute z-scores on the $c^*$ correlating with the original pattern $p$ on the output cepstra, and we also compute z-scores after correlating with a perturbed version $p'$ of $p$ with an increasing number of bits randomly flipped.  To quantify how the z-scores change, we compute an ROC curve, where the true positives are z-scores correlating to $p$, and the false positives are correlating to the perturbed versions $p'$.  
 
 
+Figure~\ref{fig:drumspn7} shows an example of this evaluation on a Rave model trained on the first time spread echo pattern embedded in the Groove dataset.  The right plot shows the corresponding ROC curves for 512 bits flipped at different durations, as well as ROC curves where the false positives are z-scores in a clean model correlating $p$.  Figure~\ref{fig:pneval} shows the AUROC for all 8 pseudorandom patterns when comparing to 512 random bits flipped and when comparing to the clean model.  Inter-model comparisons of z-scores are more challenging for the Rave models compared to single echoes due to the variation in embedding strength from model to model.   However, within each model we always get a positive slope in AUROC vs bits flipped, and we can always tell the difference with the clean model, both which indicate that the correct echo patterns survive training.
 
-Inter-model comparisons of z-scores are more challenging here compared to single echoes due to the variation in embedding strength from model to model.   However, within each model we always get a positive slope in AUROC vs bits flipped, and we can always tell the difference with the clean model, both which indicate that the correct echo patterns survive training.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/PNEval.pdf}
+    \caption{Z-scores of longer clips from models trained on time-spread echo patterns stand out more.}
+    \label{fig:pneval}
+\end{figure}
 
 
 \section{Additional Use Cases}
 
-We now report preliminary results on few additional uses cases to highlight the promise of the hidden echoes for tagging generative audio models.
-
-
 
 \subsection{Dance Diffusion Fine Tuning}
 
-Show results only on groove and vocalset since guitarset is too small
+
+
+We use the train/test/validation set from Groove, and we create our own train/test/validation set for VocalSet (we omit GuitarSet in this experiment because it's too small).  We then embed echoes in the test set and fine tune the corresponding Dance Diffusion trained on the clean training sets, using the validation set to make sure we're not overfitting.  This represents a more realistic scenario than training such a large model from scratch with the same echo in the entire dataset.  Figure~\ref{fig:finetuning} shows the results, which show some initial promise.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figs/FineTunedZScores.pdf}
+    \caption{Fine tuning clean dance diffusion models on single echoes embeds echoes somewhat}
+    \label{fig:finetuning}
+\end{figure}
 
 
 \subsection{Single Echo Demixing}
@@ -358,7 +373,7 @@ Show results only on groove and vocalset since guitarset is too small
 
 In realistic applications of audio to audio style transfer, it is common to treat the result as a stem and {\em mix} it in with other tracks.  Hence, we perform a cursory experiment to see the extent to which the synthesized echoes survive mixing and demixing.  We use the ``hybrid Demucs'' algorithm \cite{defossez2019music} to demix the audio.  This demixing model was trained on (among other data) the MUSDB18-HQ training set, so we switch the inputs to the 50 clips from the MUSDB18-HQ {\em test set}.  
 
-To create our testing data, for each architecture, we input the drums stem to the model trained on Groove with a 50 sample echo, the ``other'' stem to the model trained on the GuitarSet data with a 75 sample echo, and the vocals stem to the model trained on VocalSet with a 100 sample echo.  We then mix the results together with equal weights and demix them with Demucs into the drums, vocals, and ``other'' track.  Finally, we compute z-scores on each demixed track at echoes of 50, 75, 76, and 100.  Figure~\ref{fig:demucszscores} shows the results.  The trends are similar to the overall single echo z-scores in in Figure~\ref{fig:singleechotable}, albeit with slightly weaker z-scores.  But, amazingly, all of the correct echoes pop out in their corresponding tracks.
+To create our testing data, for each architecture, we input the drums stem to the model trained on Groove with a 50 sample echo, the ``other'' stem to the model trained on the GuitarSet data with a 75 sample echo, and the vocals stem to the model trained on VocalSet with a 100 echo.  We then mix the results together with equal weights and demix them with Demucs into the drums, vocals, and ``other'' track.  Finally, we compute z-scores on each demixed track at echoes of 50, 75, 76, and 100.  Figure~\ref{fig:demucszscores} shows the results.  The trends are similar to the overall single echo z-scores in in Figure~\ref{fig:singleechotable}, albeit with slightly weaker z-scores.  Still, all of the correct echoes pop out in their corresponding tracks.
 
 
 \subsection{RAVE Pitch Shift Augmentation}
@@ -377,16 +392,16 @@ Data augmentation is an important part of training deep generative models.  One 
 \begin{figure}
     \centering
     \includegraphics[width=\columnwidth]{figs/Rave_Tagging_MaleFemale.pdf}
-    \caption{Tagging male vs female in VocalSet, training with RAVE}
-    \label{fig:pitchshiftaugmentation}
+    \caption{Tagging VocalSet, training with RAVE}
+    \label{fig:vocalsettagging}
 \end{figure}
 
-
-
+We perform a preliminary experiment tagging a dataset with two different echoes depending on timbre: we tag all but one of the males in VocalSet with a 50 echo and all but one of the females in the dataset with a 75 echo.  As Figure~\ref{fig:vocalsettagging} shows, when we test with the remaining male and female, the z-scores of the corresponding echoes are higher.
 
 \section{Discussion}
-Talk about future work fine tuning audio language models like stable audio
+Overall, we have shown that an incredibly simple technique can be used to watermark training data; our implementations of single echo hiding and time spread echo hiding are each two lines of code in numpy/scipy.  One caveat is that, across all experiments, echoes are embedded more strongly in DDSP than in Rave, and in Rave than in Dance Diffusion, suggesting that complexity of the networks hampers the ability for the echoes to survive as strongly.  Still, each model reproduces the echoes to some degree, suggesting the generality of the approach.  This is surprising given how complex the models are and how they are unlikely to produce long sequences from the training data.
 
+In future work, we would like to fine tune larger foundation models such as stable audio \cite{evans2024long} and to explore the extent to which different time spread echoes can simultaneously exist in different parts of such models.
 
 \bibliography{writeup}
 
